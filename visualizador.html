@@ -233,10 +233,7 @@ function carregar(manual){
     })
     .then(function(json){
       ghSHA=json.sha;
-      var bytes=atob(json.content.replace(/\n/g,''));
-      var arr=new Uint8Array(bytes.length);
-      for(var i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
-      var raw=new TextDecoder('utf-8').decode(arr);
+      var raw=decodeURIComponent(escape(atob(json.content.replace(/\s/g,''))));
       DADOS=JSON.parse(raw);
       DADOS=DADOS.filter(function(r){return !r.finalizado&&r.grupo&&r.grupo!=='__FIN__';});
       var fM=document.getElementById('filtro-maquina');
