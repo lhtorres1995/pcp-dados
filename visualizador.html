@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCP Produção</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#0F1117;color:#E5E7EB;min-height:100vh}
+.header{background:#0F1117;border-bottom:1px solid #1E2130;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.header-left{display:flex;align-items:center;gap:14px}
+.logo{font-size:18px;font-weight:700;color:#fff}
+.logo span{color:#3B82F6}
+.badge{font-size:11px;background:#1E2130;color:#6B7280;padding:3px 10px;border-radius:20px}
+.header-right{display:flex;align-items:center;gap:10px}
+.update-info{font-size:12px;color:#6B7280;display:flex;align-items:center;gap:8px}
+.dot{width:7px;height:7px;border-radius:50%;background:#22C55E;display:inline-block;animation:pulse 2s infinite}
+.dot.off{background:#EF4444;animation:none}
+.dot.saving{background:#FBBF24;animation:pulse .5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.clock{font-size:13px;font-weight:600;color:#E5E7EB;font-variant-numeric:tabular-nums}
+.countdown{font-size:11px;background:#1E2130;color:#6B7280;padding:3px 10px;border-radius:20px}
+.countdown.soon{background:#2D1B1B;color:#F87171}
+.btn-hdr{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid #2A2D3E;background:#1A1D2E;color:#9CA3AF}
+.btn-hdr:hover{background:#2A2D3E}
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 24px}
+.stat{background:#1A1D2E;border:1px solid #2A2D3E;border-radius:12px;padding:14px 18px}
+.stat .label{font-size:11px;color:#6B7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.stat .value{font-size:26px;font-weight:700}
+.stat.ok .value{color:#34D399}
+.stat.warn .value{color:#FBBF24}
+.stat.danger .value{color:#F87171}
+.stat.blue .value{color:#60A5FA}
+.filter-bar{display:flex;align-items:center;gap:10px;padding:0 24px 16px;flex-wrap:wrap}
+.filter-bar select,.filter-bar input{font-size:13px;padding:7px 12px;border-radius:8px;border:1px solid #2A2D3E;background:#1A1D2E;color:#E5E7EB}
+.filter-bar input{width:240px}
+.filter-bar select option{background:#1A1D2E}
+.grupos{display:flex;flex-direction:column;gap:16px;padding:0 24px 24px}
+.grupo-card{background:#1A1D2E;border:1px solid #2A2D3E;border-radius:14px;overflow:hidden}
+.grupo-card.tem-urgente{border-color:#7F1D1D}
+.grupo-header{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2A2D3E}
+.grupo-nome{font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px;color:#fff}
+.grupo-icon{width:32px;height:32px;border-radius:8px;background:#1E3A5F;display:flex;align-items:center;justify-content:center;font-size:16px}
+.grupo-info{display:flex;align-items:center;gap:10px}
+.grupo-count{background:#0F1117;color:#60A5FA;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.grupo-total{font-size:12px;color:#6B7280}
+.urg-badge-group{background:#7F1D1D;color:#FCA5A5;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:#141624;font-weight:500;font-size:11px;color:#6B7280;padding:8px 12px;text-align:left;border-bottom:1px solid #2A2D3E;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+tbody tr{border-bottom:1px solid #1E2130}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#1E2130}
+tbody tr.urgente-row{background:#1C1010}
+tbody td{padding:8px 12px;vertical-align:middle;color:#D1D5DB}
+td.pedido{white-space:nowrap;font-weight:600;color:#fff;width:80px}
+td.item{white-space:nowrap;width:40px;color:#9CA3AF}
+td.cliente{width:160px;color:#E5E7EB}
+td.produto{width:140px;font-size:10px;font-family:monospace;color:#6B7280}
+td.desc{min-width:180px;color:#E5E7EB}
+td.qtd{white-space:nowrap;width:75px;text-align:right;font-weight:600;color:#fff}
+td.un{white-space:nowrap;width:40px;color:#9CA3AF}
+td.entrega{white-space:nowrap;width:100px}
+td.maquina-col{width:240px}
+td.obs-col{width:180px}
+.tag{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap;display:inline-block;margin-left:4px}
+.tag-hoje{background:#78350F;color:#FCD34D}
+.tag-urg{background:#7F1D1D;color:#FCA5A5}
+.sub-header td{background:#0F1117;color:#3B82F6;font-weight:600;font-size:10px;padding:5px 12px;border-bottom:1px solid #1E2130}
+.sel{font-size:12px;padding:3px 6px;border-radius:8px;border:1px solid #2A2D3E;background:#1A1D2E;color:#E5E7EB;cursor:pointer}
+.sel.sem-sel{border-color:#B45309}
+.sel.grupo{width:140px}
+.sel.sub{width:100px}
+.sel.obs-sel{width:175px}
+.sel.obs-ativo{border-color:#7C3ABE;background:#1E1433;color:#C084FC}
+.badge-editado{background:#1E3A5F;color:#60A5FA;border-radius:20px;padding:2px 7px;font-size:10px;margin-left:4px}
+.maquina-cell{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.loading,.error,.empty{text-align:center;padding:5rem;color:#6B7280}
+.loading i{font-size:48px;margin-bottom:1rem;display:block;animation:spin 1s linear infinite;color:#3B82F6}
+.error i{font-size:48px;margin-bottom:1rem;display:block;color:#EF4444}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <div class="logo">PCP <span>Produção</span></div>
+    <span class="badge">Visualizador</span>
+  </div>
+  <div class="header-right">
+    <div class="update-info">
+      <span class="dot" id="dot"></span>
+      <span id="update-txt">Carregando...</span>
+    </div>
+    <span class="countdown" id="countdown"></span>
+    <button class="btn-hdr" onclick="imprimir()"><i class="ti ti-printer" style="font-size:13px"></i> Imprimir</button>
+    <button class="btn-hdr" onclick="carregar(true)"><i class="ti ti-refresh" style="font-size:13px"></i> Atualizar</button>
+    <div class="clock" id="clock"></div>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat blue"><div class="label">Pedidos na fila</div><div class="value" id="st-total">—</div></div>
+  <div class="stat ok"><div class="label">Máquinas ativas</div><div class="value" id="st-maq">—</div></div>
+  <div class="stat danger"><div class="label">Urgentes (≤2 dias)</div><div class="value" id="st-urg">—</div></div>
+  <div class="stat warn"><div class="label">Aguardando</div><div class="value" id="st-obs">—</div></div>
+</div>
+
+<div class="filter-bar" id="filter-bar" style="display:none">
+  <input type="text" id="busca" placeholder="Buscar cliente, produto, pedido..." oninput="renderGrupos()">
+  <select id="filtro-maquina" onchange="renderGrupos()"><option value="">Todas as máquinas</option></select>
+  <select id="filtro-entrega" onchange="renderGrupos()">
+    <option value="">Qualquer entrega</option>
+    <option value="hoje">Hoje</option>
+    <option value="amanha">Amanhã</option>
+    <option value="urgente">Urgentes (≤2 dias)</option>
+    <option value="semana">Esta semana</option>
+  </select>
+  <select id="filtro-obs" onchange="renderGrupos()">
+    <option value="">Todas as observações</option>
+    <option value="Aguardando Faca">Aguardando Faca</option>
+    <option value="Aguardando Clichê">Aguardando Clichê</option>
+    <option value="Aguardando Aprovação">Aguardando Aprovação</option>
+    <option value="Aguardando MP">Aguardando MP</option>
+  </select>
+</div>
+
+<div id="conteudo">
+  <div class="loading"><i class="ti ti-loader"></i><p>Carregando programação...</p></div>
+</div>
+
+<script>
+const GH_TOKEN='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';
+const GH_REPO='lhtorres1995/pcp-dados';
+const GH_FILE='dados.json';
+const GH_API='https://api.github.com/repos/'+GH_REPO+'/contents/'+GH_FILE;
+const GH_HEADERS={'Authorization':'token '+GH_TOKEN,'Accept':'application/vnd.github.v3+json'};
+const INTERVALO=120;
+let ghSHA=null, DADOS=[], secondsLeft=INTERVALO, countdownInterval=null;
+
+const GRUPOS=[
+  {nome:'FLEXO 250',icon:'⚙',subs:[]},
+  {nome:'FLEXO 350',icon:'⚙',subs:['KROMIA','ETIRAMA','NACBRAS']},
+  {nome:'TROQUELADORAS',icon:'✂',subs:[]},
+  {nome:'TERMICA',icon:'🔥',subs:[],display:'TÉRMICA'},
+  {nome:'BATIDA',icon:'🔨',subs:[]},
+  {nome:'CORTE BROTECH / VOREY',icon:'✂',subs:['BROTECH','VOREY']},
+  {nome:'REVISORAS',icon:'🔍',subs:[]},
+  {nome:'DIGITAL',icon:'🖨',subs:[]},
+];
+const OBS_OPCOES=['','Aguardando Faca','Aguardando Clichê','Aguardando Aprovação','Aguardando MP'];
+
+function dispNome(g){const f=GRUPOS.find(x=>x.nome===g);return(f&&f.display)?f.display:(g||'');}
+function dispIcon(g){const f=GRUPOS.find(x=>x.nome===g);return f?f.icon:'⚙';}
+function parseDateBR(s){const m=(s||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);return null;}
+function diasPara(s){const d=parseDateBR(s);if(!d)return 999;const h=new Date();h.setHours(0,0,0,0);return Math.round((d-h)/864e5);}
+function fmtQtd(v){const n=parseFloat((v||'').toString().replace(',','.'));return isNaN(n)?v:n%1===0?n.toLocaleString('pt-BR'):n.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:4});}
+function nl(s){return(s||'').toLowerCase();}
+
+function iniciarContador(){
+  if(countdownInterval)clearInterval(countdownInterval);
+  secondsLeft=INTERVALO;
+  countdownInterval=setInterval(()=>{
+    secondsLeft--;
+    const el=document.getElementById('countdown');
+    if(secondsLeft<=10){el.className='countdown soon';el.textContent='Atualizando em '+secondsLeft+'s';}
+    else{el.className='countdown';el.textContent='Próxima atualização: '+secondsLeft+'s';}
+    if(secondsLeft<=0){clearInterval(countdownInterval);carregar(false);}
+  },1000);
+}
+
+async function carregar(manual=false){
+  if(manual){secondsLeft=INTERVALO;if(countdownInterval)clearInterval(countdownInterval);}
+  document.getElementById('dot').className='dot off';
+  document.getElementById('update-txt').textContent='Atualizando...';
+  try{
+    const res=await fetch(GH_API,{headers:GH_HEADERS});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const json=await res.json();
+    ghSHA=json.sha;
+    DADOS=JSON.parse(atob(json.content.replace(/\n/g,'')));
+    DADOS=DADOS.filter(r=>!r.finalizado&&r.grupo&&r.grupo!=='__FIN__');
+    const fM=document.getElementById('filtro-maquina');
+    const valAtual=fM.value;
+    fM.innerHTML='<option value="">Todas as máquinas</option>';
+    [...new Set(DADOS.map(r=>r.grupo).filter(Boolean))].sort().forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=dispNome(m);if(m===valAtual)o.selected=true;fM.appendChild(o);});
+    document.getElementById('filter-bar').style.display='flex';
+    document.getElementById('dot').className='dot';
+    const atualizado=DADOS.length?DADOS[0].atualizado||'':'—';
+    document.getElementById('update-txt').textContent='Atualizado: '+atualizado;
+    renderGrupos();
+    iniciarContador();
+  }catch(e){
+    document.getElementById('dot').className='dot off';
+    document.getElementById('update-txt').textContent='Erro ao carregar';
+    document.getElementById('conteudo').innerHTML='<div class="error"><i class="ti ti-wifi-off"></i><p>Não foi possível carregar os dados.</p></div>';
+    iniciarContador();
+  }
+}
+
+async function salvarNoGitHub(){
+  document.getElementById('dot').className='dot saving';
+  document.getElementById('update-txt').textContent='Salvando...';
+  try{
+    if(!ghSHA){
+      const r=await fetch(GH_API,{headers:GH_HEADERS});
+      if(r.ok){const j=await r.json();ghSHA=j.sha;}
+    }
+    const content=btoa(unescape(encodeURIComponent(JSON.stringify(DADOS,null,2))));
+    const body={message:'PCP Viz Sync '+new Date().toLocaleString('pt-BR'),content};
+    if(ghSHA)body.sha=ghSHA;
+    const res=await fetch(GH_API,{method:'PUT',headers:{...GH_HEADERS,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const json=await res.json();
+    if(res.ok){
+      ghSHA=json.content&&json.content.sha?json.content.sha:ghSHA;
+      document.getElementById('dot').className='dot';
+      document.getElementById('update-txt').textContent='Salvo!';
+      setTimeout(()=>{document.getElementById('update-txt').textContent='Atualizado agora';},2000);
+    }
+  }catch(e){
+    document.getElementById('dot').className='dot off';
+    document.getElementById('update-txt').textContent='Erro ao salvar';
+  }
+}
+
+let saveTimeout=null;
+function agendarSalvar(){
+  if(saveTimeout)clearTimeout(saveTimeout);
+  saveTimeout=setTimeout(()=>salvarNoGitHub(),1500);
+}
+
+function onChangeGrupo(id,val){
+  const r=DADOS.find(r=>r.id===id);if(!r)return;
+  r.grupo=val;r.sub='';r.atualizado=new Date().toLocaleString('pt-BR');
+  agendarSalvar();renderGrupos();
+}
+function onChangeSub(id,val){
+  const r=DADOS.find(r=>r.id===id);if(!r)return;
+  r.sub=val;r.atualizado=new Date().toLocaleString('pt-BR');
+  agendarSalvar();
+}
+function onChangeObs(id,val){
+  const r=DADOS.find(r=>r.id===id);if(!r)return;
+  r.obs=val;r.atualizado=new Date().toLocaleString('pt-BR');
+  agendarSalvar();
+}
+
+function filtrarEntrega(r,f){
+  if(!f)return true;
+  const d=parseDateBR(r.entrega);if(!d)return false;
+  const h=new Date();h.setHours(0,0,0,0);const diff=Math.round((d-h)/864e5);
+  if(f==='hoje')return diff===0;if(f==='amanha')return diff===1;if(f==='urgente')return diff<=2;
+  if(f==='semana'){const fds=new Date(h);fds.setDate(h.getDate()+(6-h.getDay()));return d>=h&&d<=fds;}
+  return true;
+}
+
+function renderGrupos(){
+  const busca=nl(document.getElementById('busca').value);
+  const fMaq=document.getElementById('filtro-maquina').value;
+  const fEnt=document.getElementById('filtro-entrega').value;
+  const fObs=document.getElementById('filtro-obs').value;
+  let dados=DADOS.filter(r=>{
+    if(fMaq&&r.grupo!==fMaq)return false;
+    if(!filtrarEntrega(r,fEnt))return false;
+    if(fObs&&r.obs!==fObs)return false;
+    if(busca&&!nl(r.cliente).includes(busca)&&!nl(r.produto).includes(busca)&&!nl(r.pedido).includes(busca)&&!nl(r.descricao).includes(busca))return false;
+    return true;
+  });
+  document.getElementById('st-total').textContent=dados.length;
+  document.getElementById('st-maq').textContent=new Set(dados.map(r=>r.grupo).filter(Boolean)).size;
+  document.getElementById('st-urg').textContent=dados.filter(r=>diasPara(r.entrega)<=2).length;
+  document.getElementById('st-obs').textContent=DADOS.filter(r=>r.obs).length;
+  const conteudo=document.getElementById('conteudo');
+  if(!dados.length){conteudo.innerHTML='<div class="empty"><i class="ti ti-inbox" style="font-size:48px;display:block;margin-bottom:1rem;color:#2A2D3E"></i>Nenhum pedido encontrado.</div>';return;}
+  const grupos={};
+  dados.forEach(r=>{const g=r.grupo||'__SEM__';if(!grupos[g])grupos[g]=[];grupos[g].push(r);});
+  const ordemGrupos=GRUPOS.map(g=>g.nome);
+  const chavesOrdenadas=Object.keys(grupos).sort((a,b)=>{const ia=ordemGrupos.indexOf(a),ib=ordemGrupos.indexOf(b);if(ia===-1&&ib===-1)return a.localeCompare(b);if(ia===-1)return 1;if(ib===-1)return-1;return ia-ib;});
+  conteudo.innerHTML='';
+  const container=document.createElement('div');container.className='grupos';
+  chavesOrdenadas.forEach(g=>{
+    const itens=grupos[g].sort((a,b)=>{const da=parseDateBR(a.entrega),db=parseDateBR(b.entrega);return(da?da.getTime():9e12)-(db?db.getTime():9e12);});
+    const temUrgente=itens.some(r=>diasPara(r.entrega)<=2);
+    const gInfo=GRUPOS.find(x=>x.nome===g);
+    const subs=gInfo&&gInfo.subs.length?gInfo.subs:null;
+    const tots={};itens.forEach(r=>{const n=parseFloat((r.qtd||'').replace(',','.'));if(!isNaN(n)){const u=r.un||'?';tots[u]=(tots[u]||0)+n;}});
+    const totStr=Object.entries(tots).map(([u,v])=>fmtQtd(v)+' '+u).join(' · ');
+    const urgCount=itens.filter(r=>diasPara(r.entrega)<=2).length;
+    const card=document.createElement('div');card.className='grupo-card'+(temUrgente?' tem-urgente':'');
+    card.innerHTML='<div class="grupo-header"><div class="grupo-nome"><div class="grupo-icon">'+dispIcon(g)+'</div>'+dispNome(g)+'</div><div class="grupo-info"><span class="grupo-count">'+itens.length+' pedido'+(itens.length>1?'s':'')+'</span><span class="grupo-total">'+totStr+'</span>'+(urgCount>0?'<span class="urg-badge-group"><i class="ti ti-alert-triangle" style="font-size:11px"></i> '+urgCount+' urgente'+(urgCount>1?'s':'')+'</span>':'')+'</div></div><div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Item</th><th>Cliente</th><th>Produto</th><th>Descrição</th><th style="text-align:right">Qtd.</th><th>Un.</th><th>Entrega</th><th>Máquina</th><th>Observação</th></tr></thead><tbody id="tbody-'+g.replace(/[^a-z0-9]/gi,'_')+'"></tbody></table></div>';
+    container.appendChild(card);
+    const tbody=card.querySelector('tbody');
+    if(subs){
+      subs.forEach(sub=>{const subItens=itens.filter(r=>r.sub===sub);if(!subItens.length)return;const subTr=document.createElement('tr');subTr.className='sub-header';subTr.innerHTML='<td colspan="10">↳ '+sub+' — '+subItens.length+' pedido(s)</td>';tbody.appendChild(subTr);subItens.forEach(r=>tbody.appendChild(criarLinha(r,g)));});
+      const semSub=itens.filter(r=>!r.sub);if(semSub.length){const subTr=document.createElement('tr');subTr.className='sub-header';subTr.innerHTML='<td colspan="10" style="color:#4B5563">↳ Sem submáquina — '+semSub.length+' pedido(s)</td>';tbody.appendChild(subTr);semSub.forEach(r=>tbody.appendChild(criarLinha(r,g)));}
+    }else{itens.forEach(r=>tbody.appendChild(criarLinha(r,g)));}
+  });
+  conteudo.appendChild(container);
+}
+
+function criarLinha(r,g){
+  const dias=diasPara(r.entrega);
+  const tr=document.createElement('tr');
+  if(dias<=2)tr.className='urgente-row';
+  let dataTag='';
+  if(dias<=0)dataTag='<span class="tag tag-hoje">HOJE</span>';
+  else if(dias===1)dataTag='<span class="tag tag-urg">AMANHÃ</span>';
+  else if(dias===2)dataTag='<span class="tag tag-urg">2d</span>';
+
+  const opG=GRUPOS.map(x=>'<option value="'+x.nome+'" '+(r.grupo===x.nome?'selected':'')+'>'+dispNome(x.nome)+'</option>').join('');
+  const subs=GRUPOS.find(x=>x.nome===r.grupo);
+  const hasSub=subs&&subs.subs.length;
+  let mc='<div class="maquina-cell"><select class="sel grupo '+(r.grupo?'':'sem-sel')+'" onchange="onChangeGrupo(\''+r.id+'\',this.value)"><option value="">— selecionar —</option>'+opG+'</select>';
+  if(hasSub){const opS=subs.subs.map(s=>'<option value="'+s+'" '+(r.sub===s?'selected':'')+'>'+s+'</option>').join('');mc+='<select class="sel sub" onchange="onChangeSub(\''+r.id+'\',this.value)"><option value="">— sub —</option>'+opS+'</select>';}
+  mc+='</div>';
+
+  const opObs=OBS_OPCOES.map(o=>'<option value="'+o+'" '+(r.obs===o?'selected':'')+'>'+( o||'— sem observação —')+'</option>').join('');
+  const obsCell='<select class="sel obs-sel '+(r.obs?'obs-ativo':'')+'" onchange="onChangeObs(\''+r.id+'\',this.value)">'+opObs+'</select>';
+
+  tr.innerHTML='<td class="pedido">'+r.pedido+'</td><td class="item">'+r.item+'</td><td class="cliente" title="'+r.cliente+'">'+r.cliente+'</td><td class="produto" title="'+r.produto+'">'+r.produto+'</td><td class="desc">'+r.descricao+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+r.un+'</td><td class="entrega">'+r.entrega+dataTag+'</td><td class="maquina-col">'+mc+'</td><td class="obs-col">'+obsCell+'</td>';
+  return tr;
+}
+
+function imprimir(){
+  const hoje=new Date().toLocaleDateString('pt-BR');
+  const grupos={};
+  DADOS.forEach(r=>{const g=r.grupo;if(!g)return;if(!grupos[g])grupos[g]=[];grupos[g].push(r);});
+  Object.keys(grupos).forEach(g=>grupos[g].sort((a,b)=>{const da=parseDateBR(a.entrega),db=parseDateBR(b.entrega);return(da?da.getTime():9e12)-(db?db.getTime():9e12);}));
+  const ordemGrupos=GRUPOS.map(g=>g.nome);
+  const chavesOrdenadas=Object.keys(grupos).sort((a,b)=>{const ia=ordemGrupos.indexOf(a),ib=ordemGrupos.indexOf(b);if(ia===-1&&ib===-1)return a.localeCompare(b);if(ia===-1)return 1;if(ib===-1)return-1;return ia-ib;});
+  let pages='';
+  chavesOrdenadas.forEach((g,gi)=>{
+    const itens=grupos[g];
+    const gInfo=GRUPOS.find(x=>x.nome===g);
+    const subs=gInfo&&gInfo.subs.length?gInfo.subs:null;
+    let rows='';
+    if(subs){
+      subs.forEach(s=>{const l=itens.filter(r=>r.sub===s);if(!l.length)return;rows+='<tr><td colspan="10" style="background:#dbe9f5;color:#185FA5;font-weight:600;font-size:10px;padding:4px 8px;border:.5px solid #B5D4F4">&#8627; '+s+' &mdash; '+l.length+' pedido(s)</td></tr>';l.forEach(r=>{rows+=lImp(r,g);});});
+      const sem=itens.filter(r=>!r.sub);if(sem.length){rows+='<tr><td colspan="10" style="background:#FAEEDA;color:#854F0B;font-weight:600;font-size:10px;padding:4px 8px;border:.5px solid #FAC775">&#8627; Sem submáquina</td></tr>';sem.forEach(r=>{rows+=lImp(r,g);});}
+    }else{itens.forEach(r=>{rows+=lImp(r,g);});}
+    const tots={};itens.forEach(r=>{const n=parseFloat((r.qtd||'').replace(',','.'));if(!isNaN(n)){const u=r.un||'?';tots[u]=(tots[u]||0)+n;}});
+    const totStr=Object.entries(tots).map(function(e){return fmtQtd(e[1])+' '+e[0];}).join(' | ');
+    pages+='<div style="padding:10px 14px;'+(gi>0?'page-break-before:always':'')+'"><div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #185FA5;padding-bottom:6px;margin-bottom:10px"><div style="font-size:20px;font-weight:700;color:#185FA5">&#9881; '+dispNome(g)+'</div><div style="font-size:10px;color:#555;text-align:right">Programação de Produção | Emissão: '+hoje+' | '+itens.length+' pedido(s)</div></div><table style="width:100%;border-collapse:collapse;font-size:10px;font-family:Arial,sans-serif;table-layout:fixed"><colgroup><col style="width:55px"><col style="width:28px"><col style="width:120px"><col style="width:110px"><col><col style="width:55px"><col style="width:26px"><col style="width:65px"><col style="width:85px"><col style="width:130px"></colgroup><thead><tr style="background:#E6F1FB"><th style="padding:5px 6px;text-align:left;border:.5px solid #B5D4F4;color:#185FA5">Pedido</th><th style="padding:5px 6px;text-align:left;border:.5px solid #B5D4F4;color:#185FA5">Item</th><th style="padding:5px 6px;text-align:left;border:.5px solid #B5D4F4;color:#185FA5">Cliente</th><th style="padding:5px 6px;text-align:left;border:.5px solid #B5D4F4;color:#185FA5">Produto</th><th style="padding:5px 6px;text-align:left;border:.5px solid #B5D4F4;color:#185FA5">Descri&ccedil;&atilde;o</th><th style="padding:5px 6px;text-align:right;border:.5px solid #B5D4F4;color:#185FA5">Qtd.</th><th style="padding:5px 6px;text-align:left;border:.5px solid #B5D4F4;color:#185FA5">Un.</th><th style="padding:5px 6px;text-align:left;border:.5px solid #B5D4F4;color:#185FA5">Entrega</th><th style="padding:5px 6px;text-align:left;border:.5px solid #B5D4F4;color:#185FA5">M&aacute;quina</th><th style="padding:5px 6px;text-align:left;border:.5px solid #B5D4F4;color:#185FA5">Observa&ccedil;&atilde;o</th></tr></thead><tbody>'+rows+'</tbody></table><div style="margin-top:8px;display:flex;justify-content:space-between"><div style="font-size:9px;color:#555">Total: '+totStr+'</div><div style="font-size:9px;color:#bbb">PCP &mdash; '+hoje+'</div></div><div style="margin-top:18px;border-top:1px solid #ccc;padding-top:6px;font-size:9px;color:#999;display:flex;justify-content:space-between"><span>Operador: _________________________________</span><span>Assinatura: _________________________________</span><span>Data/Hora: _________________________________</span></div></div>';
+  });
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Programa&ccedil;&atilde;o &mdash; '+hoje+'</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif}td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}tr:nth-child(even) td{background:#f9f9f9}@media print{@page{size:A4 landscape;margin:6mm 8mm}tr:nth-child(even) td{background:#f9f9f9!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}thead tr{background:#E6F1FB!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}<\/style><script>window.onload=function(){window.print()}<\/script></head><body>'+pages+'</body></html>';
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(a.href);},10000);
+}
+
+function lImp(r,g){
+  const s=r.sub,maq=s?dispNome(g)+' / '+s:dispNome(g),urg=diasPara(r.entrega)<=2,obs=r.obs||'';
+  return '<tr><td style="padding:4px 6px;border:.5px solid #e0e0e0'+(urg?';border-left:3px solid #E24B4A':'')+'">'+(r.pedido||'')+'</td><td style="padding:4px 6px;border:.5px solid #e0e0e0">'+(r.item||'')+'</td><td style="padding:4px 6px;border:.5px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(r.cliente||'')+'</td><td style="padding:4px 6px;border:.5px solid #e0e0e0;font-family:monospace;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(r.produto||'')+'</td><td style="padding:4px 6px;border:.5px solid #e0e0e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(r.descricao||'')+'</td><td style="padding:4px 6px;border:.5px solid #e0e0e0;text-align:right">'+fmtQtd(r.qtd)+'</td><td style="padding:4px 6px;border:.5px solid #e0e0e0">'+(r.un||'')+'</td><td style="padding:4px 6px;border:.5px solid #e0e0e0'+(urg?';color:#A32D2D;font-weight:600':'')+'">'+(r.entrega||'')+'</td><td style="padding:4px 6px;border:.5px solid #e0e0e0">'+maq+'</td><td style="padding:4px 6px;border:.5px solid #e0e0e0;color:'+(obs?'#7C3C00':'#999')+'">'+( obs||'—')+'</td></tr>';
+}
+
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+tick();setInterval(tick,1000);
+carregar(true);
+</script>
+</body>
+</html>
