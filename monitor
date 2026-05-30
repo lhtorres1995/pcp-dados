@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCP Monitor</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#0F1117;color:#E5E7EB;min-height:100vh;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+
+/* Header */
+.header{background:#1A1D2E;border-bottom:1px solid #2A2D3E;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header-left{display:flex;align-items:center;gap:16px}
+.logo{font-size:20px;font-weight:800;color:#fff}
+.logo span{color:#3B82F6}
+.maquina-nome{font-size:24px;font-weight:700;color:#fff;display:flex;align-items:center;gap:10px}
+.maquina-badge{background:#185FA5;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600}
+.header-right{display:flex;align-items:center;gap:16px}
+.clock{font-size:20px;font-weight:700;color:#E5E7EB;font-variant-numeric:tabular-nums}
+.date-txt{font-size:13px;color:#6B7280}
+.dot{width:8px;height:8px;border-radius:50%;background:#22C55E;display:inline-block;animation:pulse 2s infinite}
+.dot.off{background:#EF4444;animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Progress bar */
+.progress-bar{height:3px;background:#2A2D3E;flex-shrink:0}
+.progress-fill{height:100%;background:#3B82F6;transition:width 1s linear}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:10px 24px;flex-shrink:0}
+.stat{background:#1A1D2E;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:12px}
+.stat-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.stat-icon.blue{background:#1E3A5F}
+.stat-icon.green{background:#1A3A2A}
+.stat-icon.red{background:#3A1A1A}
+.stat-icon.yellow{background:#3A2E10}
+.stat .label{font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:.04em}
+.stat .value{font-size:22px;font-weight:700}
+.stat.blue .value{color:#60A5FA}
+.stat.green .value{color:#34D399}
+.stat.red .value{color:#F87171}
+.stat.yellow .value{color:#FBBF24}
+
+/* Tabela */
+.table-section{flex:1;padding:0 24px 12px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.sub-header-label{font-size:12px;font-weight:600;color:#3B82F6;text-transform:uppercase;letter-spacing:.06em;padding:6px 0 4px;border-bottom:1px solid #2A2D3E;margin-bottom:4px}
+.table-wrap{flex:1;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{background:#141624;font-weight:600;font-size:12px;color:#6B7280;padding:8px 12px;text-align:left;border-bottom:1px solid #2A2D3E;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0}
+tbody tr{border-bottom:1px solid #1E2130;transition:background .15s}
+tbody tr:last-child{border-bottom:none}
+tbody tr.urgente{background:#1C1010;border-left:3px solid #EF4444}
+tbody tr.hoje{background:#1C1600;border-left:3px solid #F59E0B}
+tbody td{padding:9px 12px;vertical-align:middle}
+td.col-pedido{font-weight:700;color:#fff;white-space:nowrap;width:90px}
+td.col-item{color:#6B7280;width:45px}
+td.col-cliente{color:#E5E7EB;width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+td.col-desc{color:#E5E7EB;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.col-qtd{text-align:right;font-weight:600;color:#fff;white-space:nowrap;width:90px}
+td.col-un{color:#6B7280;width:50px}
+td.col-entrega{white-space:nowrap;width:100px}
+td.col-maq{white-space:nowrap;width:160px}
+td.col-obs{width:180px}
+.tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+.tag-hoje{background:#78350F;color:#FCD34D}
+.tag-urg{background:#7F1D1D;color:#FCA5A5}
+.tag-obs{background:#2D1B4E;color:#C084FC;font-size:11px}
+.tag-sub{background:#1E3A2F;color:#6EE7B7;font-size:11px}
+
+/* Nav dots */
+.nav-bar{background:#1A1D2E;border-top:1px solid #2A2D3E;padding:8px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.nav-dots{display:flex;gap:8px;align-items:center}
+.nav-dot{width:8px;height:8px;border-radius:50%;background:#2A2D3E;cursor:pointer;transition:all .2s}
+.nav-dot.ativo{background:#3B82F6;width:24px;border-radius:4px}
+.nav-dot.urgente-dot{background:#EF4444}
+.nav-controls{display:flex;align-items:center;gap:12px}
+.nav-btn{padding:5px 14px;border-radius:8px;border:1px solid #2A2D3E;background:#0F1117;color:#9CA3AF;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:5px}
+.nav-btn:hover{background:#2A2D3E}
+.nav-btn.pause{background:#185FA5;border-color:#185FA5;color:#fff}
+.token-btn{padding:4px 12px;border-radius:8px;border:1px solid #2A2D3E;background:#0F1117;color:#6B7280;cursor:pointer;font-size:11px}
+.nav-info{font-size:12px;color:#6B7280}
+
+/* Animacao entrada */
+.fade-in{animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.empty{text-align:center;padding:4rem;color:#6B7280;font-size:16px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">PCP <span>Monitor</span></div>
+    <div class="maquina-nome" id="maquina-nome">—</div>
+    <span class="maquina-badge" id="maquina-badge">—</span>
+  </div>
+  <div class="header-right">
+    <span class="dot" id="dot"></span>
+    <div>
+      <div class="clock" id="clock">00:00:00</div>
+      <div class="date-txt" id="date-txt"></div>
+    </div>
+  </div>
+</div>
+
+<div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+
+<div class="stats">
+  <div class="stat blue"><div class="stat-icon blue"><i class="ti ti-list"></i></div><div><div class="label">Pedidos</div><div class="value" id="st-total">—</div></div></div>
+  <div class="stat red"><div class="stat-icon red"><i class="ti ti-alert-triangle"></i></div><div><div class="label">Urgentes</div><div class="value" id="st-urg">—</div></div></div>
+  <div class="stat yellow"><div class="stat-icon yellow"><i class="ti ti-clock-pause"></i></div><div><div class="label">Aguardando</div><div class="value" id="st-obs">—</div></div></div>
+  <div class="stat green"><div class="stat-icon green"><i class="ti ti-refresh"></i></div><div><div class="label">Atualizado</div><div class="value" style="font-size:13px;color:#34D399" id="st-hora">—</div></div></div>
+</div>
+
+<div class="table-section">
+  <div class="table-wrap" id="table-wrap">
+    <div class="empty">Carregando...</div>
+  </div>
+</div>
+
+<div class="nav-bar">
+  <div class="nav-dots" id="nav-dots"></div>
+  <div class="nav-info" id="nav-info"></div>
+  <div class="nav-controls">
+    <button class="token-btn" onclick="trocarToken()"><i class="ti ti-key" style="font-size:11px"></i> Token</button>
+    <button class="nav-btn" onclick="anterior()"><i class="ti ti-chevron-left" style="font-size:13px"></i> Anterior</button>
+    <button class="nav-btn pause" id="btn-pause" onclick="togglePause()"><i class="ti ti-player-pause" style="font-size:13px"></i> Pausar</button>
+    <button class="nav-btn" onclick="proximo()">Proximo <i class="ti ti-chevron-right" style="font-size:13px"></i></button>
+  </div>
+</div>
+
+<script>
+var GH_REPO='lhtorres1995/pcp-sync';
+var GH_FILE='dados.json';
+var DADOS=[];
+var GRUPOS_ATIVOS=[];
+var grupoAtual=0;
+var pausado=false;
+var tempoRotacao=15; // segundos por maquina
+var progressoSeg=0;
+var rotacaoInterval=null;
+var progressoInterval=null;
+var fetchInterval=null;
+
+var GRUPOS_DEF=[
+  {nome:'FLEXO 250',subs:[]},
+  {nome:'FLEXO 350',subs:['KROMIA','ETIRAMA','NACBRAS']},
+  {nome:'TROQUELADORAS',subs:[]},
+  {nome:'TERMICA',subs:[]},
+  {nome:'BATIDA',subs:[]},
+  {nome:'CORTE BROTECH / VOREY',subs:['BROTECH','VOREY']},
+  {nome:'REVISORAS',subs:[]},
+  {nome:'DIGITAL',subs:[]},
+];
+
+function getToken(){return localStorage.getItem('pcp_gh_token')||'';}
+function setToken(t){localStorage.setItem('pcp_gh_token',t);}
+function getAPI(){return'https://api.github.com/repos/'+GH_REPO+'/contents/'+GH_FILE;}
+function getHeaders(){return{'Authorization':'token '+getToken(),'Accept':'application/vnd.github.v3+json'};}
+
+function trocarToken(){
+  localStorage.removeItem('pcp_gh_token');
+  var t=prompt('Cole seu GitHub Personal Access Token:');
+  if(t&&t.trim()){setToken(t.trim());carregar();}
+}
+
+function parseDateBR(s){var m=(s||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);return null;}
+function diasPara(s){var d=parseDateBR(s);if(!d)return 999;var h=new Date();h.setHours(0,0,0,0);return Math.round((d-h)/864e5);}
+function fmtQtd(v){var n=parseFloat((v||'').toString().replace(',','.'));return isNaN(n)?String(v||''):n%1===0?n.toLocaleString('pt-BR'):n.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:4});}
+
+function carregar(){
+  if(!getToken()){var t=prompt('Cole seu GitHub Personal Access Token:');if(t&&t.trim())setToken(t.trim());else return;}
+  document.getElementById('dot').className='dot off';
+  fetch(getAPI(),{headers:getHeaders()})
+    .then(function(res){if(res.status===401){localStorage.removeItem('pcp_gh_token');throw new Error('Token invalido');}if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
+    .then(function(json){
+      var raw=decodeURIComponent(escape(atob(json.content.replace(/\s/g,''))));
+      DADOS=JSON.parse(raw).filter(function(r){return !r.finalizado&&r.grupo&&r.grupo!=='__FIN__';});
+      document.getElementById('dot').className='dot';
+      var agora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      document.getElementById('st-hora').textContent=agora;
+      construirGrupos();
+      atualizarStats();
+      renderGrupo();
+    })
+    .catch(function(e){document.getElementById('dot').className='dot off';});
+}
+
+function construirGrupos(){
+  var grupos={};
+  DADOS.forEach(function(r){if(!grupos[r.grupo])grupos[r.grupo]=[];grupos[r.grupo].push(r);});
+  var ordemDef=GRUPOS_DEF.map(function(g){return g.nome;});
+  GRUPOS_ATIVOS=Object.keys(grupos).sort(function(a,b){var ia=ordemDef.indexOf(a),ib=ordemDef.indexOf(b);if(ia===-1&&ib===-1)return a.localeCompare(b);if(ia===-1)return 1;if(ib===-1)return-1;return ia-ib;}).map(function(g){return{nome:g,itens:grupos[g].sort(function(a,b){var da=parseDateBR(a.entrega),db=parseDateBR(b.entrega);return(da?da.getTime():9e12)-(db?db.getTime():9e12);})};});
+  if(grupoAtual>=GRUPOS_ATIVOS.length)grupoAtual=0;
+  renderNavDots();
+}
+
+function atualizarStats(){
+  document.getElementById('st-total').textContent=DADOS.length;
+  document.getElementById('st-urg').textContent=DADOS.filter(function(r){return diasPara(r.entrega)<=2;}).length;
+  document.getElementById('st-obs').textContent=DADOS.filter(function(r){return r.obs;}).length;
+}
+
+function renderNavDots(){
+  var container=document.getElementById('nav-dots');
+  container.innerHTML='';
+  GRUPOS_ATIVOS.forEach(function(g,i){
+    var dot=document.createElement('span');
+    var temUrg=g.itens.some(function(r){return diasPara(r.entrega)<=2;});
+    dot.className='nav-dot'+(i===grupoAtual?' ativo':'')+(temUrg&&i!==grupoAtual?' urgente-dot':'');
+    dot.title=g.nome;
+    dot.onclick=(function(idx){return function(){irPara(idx);};})(i);
+    container.appendChild(dot);
+  });
+}
+
+function renderGrupo(){
+  if(!GRUPOS_ATIVOS.length){
+    document.getElementById('maquina-nome').textContent='Sem dados';
+    document.getElementById('maquina-badge').textContent='—';
+    document.getElementById('table-wrap').innerHTML='<div class="empty">Nenhum pedido na fila.</div>';
+    return;
+  }
+  var g=GRUPOS_ATIVOS[grupoAtual];
+  var gDef=GRUPOS_DEF.find(function(x){return x.nome===g.nome;});
+  var subs=gDef&&gDef.subs.length?gDef.subs:null;
+  var urgCount=g.itens.filter(function(r){return diasPara(r.entrega)<=2;}).length;
+
+  document.getElementById('maquina-nome').textContent=g.nome;
+  document.getElementById('maquina-badge').textContent=g.itens.length+' pedido'+(g.itens.length>1?'s':'');
+  document.getElementById('nav-info').textContent=(grupoAtual+1)+' / '+GRUPOS_ATIVOS.length+(urgCount>0?' - '+urgCount+' urgente'+(urgCount>1?'s':''):'');
+  renderNavDots();
+
+  var wrap=document.getElementById('table-wrap');
+  wrap.innerHTML='';
+  wrap.className='table-wrap fade-in';
+
+  var table=document.createElement('table');
+  table.innerHTML='<thead><tr><th>Pedido</th><th>Item</th><th>Cliente</th><th>Descricao</th><th style="text-align:right">Qtd.</th><th>Un.</th><th>Entrega</th><th>Maquina</th><th>Observacao</th></tr></thead>';
+  var tbody=document.createElement('tbody');
+
+  function addRows(itens){
+    itens.forEach(function(r){
+      var dias=diasPara(r.entrega);
+      var tr=document.createElement('tr');
+      if(dias<=0)tr.className='hoje';
+      else if(dias<=2)tr.className='urgente';
+      var dataTag='';
+      if(dias<=0)dataTag=' <span class="tag tag-hoje">HOJE</span>';
+      else if(dias===1)dataTag=' <span class="tag tag-urg">AMANHA</span>';
+      else if(dias===2)dataTag=' <span class="tag tag-urg">2d</span>';
+      var maqLabel=r.sub?r.grupo+' / '+r.sub:r.grupo;
+      var obsTag=r.obs?'<span class="tag tag-obs">'+r.obs+'</span>':'<span style="color:#4B5563">—</span>';
+      tr.innerHTML='<td class="col-pedido">'+(r.pedido||'')+'</td><td class="col-item">'+(r.item||'')+'</td><td class="col-cliente" title="'+(r.cliente||'')+'">'+(r.cliente||'')+'</td><td class="col-desc" title="'+(r.descricao||'')+'">'+(r.descricao||'')+'</td><td class="col-qtd">'+fmtQtd(r.qtd)+'</td><td class="col-un">'+(r.un||'')+'</td><td class="col-entrega">'+(r.entrega||'')+dataTag+'</td><td class="col-maq">'+maqLabel+(r.sub?'<span class="tag tag-sub" style="margin-left:4px">'+r.sub+'</span>':'')+'</td><td class="col-obs">'+obsTag+'</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  if(subs){
+    subs.forEach(function(sub){
+      var si=g.itens.filter(function(r){return r.sub===sub;});
+      if(!si.length)return;
+      var lbl=document.createElement('tr');
+      lbl.innerHTML='<td colspan="9" class="sub-header-label" style="padding:6px 12px;font-size:11px;font-weight:600;color:#3B82F6;background:#141624;text-transform:uppercase;letter-spacing:.05em">'+sub+' ('+si.length+')</td>';
+      tbody.appendChild(lbl);
+      addRows(si);
+    });
+    var sem=g.itens.filter(function(r){return !r.sub;});
+    if(sem.length){
+      var lbl2=document.createElement('tr');
+      lbl2.innerHTML='<td colspan="9" style="padding:6px 12px;font-size:11px;font-weight:600;color:#4B5563;background:#141624;text-transform:uppercase;letter-spacing:.05em">Sem submaquina ('+sem.length+')</td>';
+      tbody.appendChild(lbl2);
+      addRows(sem);
+    }
+  }else{addRows(g.itens);}
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+}
+
+function proximo(){
+  grupoAtual=(grupoAtual+1)%GRUPOS_ATIVOS.length;
+  progressoSeg=0;
+  renderGrupo();
+}
+function anterior(){
+  grupoAtual=(grupoAtual-1+GRUPOS_ATIVOS.length)%GRUPOS_ATIVOS.length;
+  progressoSeg=0;
+  renderGrupo();
+}
+function irPara(i){grupoAtual=i;progressoSeg=0;renderGrupo();}
+
+function togglePause(){
+  pausado=!pausado;
+  var btn=document.getElementById('btn-pause');
+  if(pausado){btn.innerHTML='<i class="ti ti-player-play" style="font-size:13px"></i> Continuar';btn.style.background='#854F0B';btn.style.borderColor='#854F0B';}
+  else{btn.innerHTML='<i class="ti ti-player-pause" style="font-size:13px"></i> Pausar';btn.style.background='#185FA5';btn.style.borderColor='#185FA5';}
+}
+
+// Relógio
+function tick(){
+  var n=new Date();
+  document.getElementById('clock').textContent=n.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('date-txt').textContent=n.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
+}
+tick();setInterval(tick,1000);
+
+// Progresso e rotação
+setInterval(function(){
+  if(pausado||!GRUPOS_ATIVOS.length)return;
+  progressoSeg++;
+  var pct=(progressoSeg/tempoRotacao)*100;
+  document.getElementById('progress').style.width=Math.min(pct,100)+'%';
+  if(progressoSeg>=tempoRotacao){progressoSeg=0;proximo();}
+},1000);
+
+// Fetch a cada 2 minutos
+carregar();
+setInterval(carregar,120000);
+</script>
+</body>
+</html>
