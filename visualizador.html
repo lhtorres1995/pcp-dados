@@ -173,9 +173,12 @@ var GRUPOS=[
   {nome:'REVISORAS',icon:'R',subs:[]},
   {nome:'DIGITAL',icon:'D',subs:[]},
 ];
-var OBS_OPCOES=['','Aguardando Faca','Aguardando Cliche','Aguardando Aprovacao','Aguardando MP'];
+var OBS_OPCOES=['','Aguardando Faca','Aguardando Clich\u00EA','Aguardando Aprova\u00E7\u00E3o','Aguardando MP'];
 
-function dispNome(g){var f=GRUPOS.find(function(x){return x.nome===g;});return(f&&f.display)?f.display:(g||'');}
+function dispNome(g){
+  var nomes={'TERMICA':'T\u00E9rmica','TROQUELADORAS':'Troqueladoras','FLEXO 250':'Flexo 250','FLEXO 350':'Flexo 350','BATIDA':'Batida','CORTE BROTECH / VOREY':'Corte Brotech / Vorey','REVISORAS':'Revisoras','DIGITAL':'Digital'};
+  return nomes[g]||g||'';
+}
 function dispIcon(g){var f=GRUPOS.find(function(x){return x.nome===g;});return f?f.icon:'*';}
 function getToken(){return localStorage.getItem('pcp_gh_token')||'';}
 function setToken(t){localStorage.setItem('pcp_gh_token',t);}
