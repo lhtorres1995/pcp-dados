@@ -94,6 +94,7 @@ td.obs-col{width:180px}
       <span id="update-txt">Carregando...</span>
     </div>
     <span class="countdown" id="countdown"></span>
+    <button class="btn-hdr" onclick="alternarTema()" id="btn-tema"><i class="ti ti-sun" style="font-size:13px"></i> Claro</button>
     <button class="btn-hdr" onclick="trocarToken()"><i class="ti ti-key" style="font-size:13px"></i> Token</button>
     <button class="btn-hdr" onclick="imprimir()"><i class="ti ti-printer" style="font-size:13px"></i> Imprimir</button>
     <button class="btn-hdr" onclick="carregar(true)"><i class="ti ti-refresh" style="font-size:13px"></i> Atualizar</button>
@@ -157,6 +158,17 @@ function getToken(){return localStorage.getItem('pcp_gh_token')||'';}
 function setToken(t){localStorage.setItem('pcp_gh_token',t);}
 function getAPI(){return'https://api.github.com/repos/'+GH_REPO+'/contents/'+GH_FILE;}
 function getHeaders(){return{'Authorization':'token '+getToken(),'Accept':'application/vnd.github.v3+json'};}
+
+function alternarTema(){
+  var isLight=document.body.classList.toggle('light');
+  localStorage.setItem('pcp_tema',isLight?'light':'dark');
+  var btn=document.getElementById('btn-tema');
+  btn.innerHTML=isLight?'<i class="ti ti-moon" style="font-size:13px"></i> Escuro':'<i class="ti ti-sun" style="font-size:13px"></i> Claro';
+}
+function aplicarTema(){
+  var tema=localStorage.getItem('pcp_tema')||'dark';
+  if(tema==='light'){document.body.classList.add('light');document.getElementById('btn-tema').innerHTML='<i class="ti ti-moon" style="font-size:13px"></i> Escuro';}
+}
 
 function trocarToken(){
   localStorage.removeItem('pcp_gh_token');
@@ -361,6 +373,7 @@ function lImp(r,g){
 function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
 tick();
 setInterval(tick,1000);
+aplicarTema();
 carregar(true);
 </script>
 </body>
