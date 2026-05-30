@@ -233,7 +233,7 @@ function carregar(manual){
     })
     .then(function(json){
       ghSHA=json.sha;
-      var raw=atob(json.content.replace(/\n/g,''));
+      var raw=decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
       DADOS=JSON.parse(raw);
       DADOS=DADOS.filter(function(r){return !r.finalizado&&r.grupo&&r.grupo!=='__FIN__';});
       var fM=document.getElementById('filtro-maquina');
