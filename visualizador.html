@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PCP Producao</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<title>PCP Producao</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <style>
 :root{
   --bg:#0F1117;--bg2:#1A1D2E;--bg3:#141624;--border:#2A2D3E;--border2:#1E2130;
@@ -132,8 +131,7 @@ td.obs-col{width:180px}
   <div class="stat blue"><div class="label">Pedidos na fila</div><div class="value" id="st-total">-</div></div>
   <div class="stat ok"><div class="label">Maquinas ativas</div><div class="value" id="st-maq">-</div></div>
   <div class="stat danger"><div class="label">Urgentes</div><div class="value" id="st-urg">-</div></div>
-  <div class="stat warn"><div class="label">Aguardando</div><div class="value" id="st-obs">-</div></div>
-</div>
+  <div class="stat warn"><div class="label">Aguardando</div><div class="value" id="st-obs">-</div></div></div>
 <div class="filter-bar" id="filter-bar" style="display:none">
   <input type="text" id="busca" placeholder="Buscar cliente, produto, pedido..." oninput="renderGrupos()">
   <select id="filtro-maquina" onchange="renderGrupos()"><option value="">Todas as maquinas</option></select>
@@ -150,8 +148,7 @@ td.obs-col{width:180px}
     <option value="Aguardando Cliche">Aguardando Cliche</option>
     <option value="Aguardando Aprovacao">Aguardando Aprovacao</option>
     <option value="Aguardando MP">Aguardando MP</option>
-  </select>
-</div>
+  </select></div>
 <div id="conteudo">
   <div class="loading"><i class="ti ti-loader"></i><p>Carregando programacao...</p></div>
 </div>
@@ -173,12 +170,8 @@ var GRUPOS=[
   {nome:'REVISORAS',icon:'R',subs:[]},
   {nome:'DIGITAL',icon:'D',subs:[]},
 ];
-var OBS_OPCOES=['','Aguardando Faca','Aguardando Clich\u00EA','Aguardando Aprova\u00E7\u00E3o','Aguardando MP'];
-
-function dispNome(g){
-  var nomes={'TERMICA':'T\u00E9rmica','TROQUELADORAS':'Troqueladoras','FLEXO 250':'Flexo 250','FLEXO 350':'Flexo 350','BATIDA':'Batida','CORTE BROTECH / VOREY':'Corte Brotech / Vorey','REVISORAS':'Revisoras','DIGITAL':'Digital'};
-  return nomes[g]||g||'';
-}
+var OBS_OPCOES=['','Aguardando Faca','Aguardando Cliche','Aguardando Aprovacao','Aguardando MP'];
+function dispNome(g){var f=GRUPOS.find(function(x){return x.nome===g;});return(f&&f.display)?f.display:(g||'');}
 function dispIcon(g){var f=GRUPOS.find(function(x){return x.nome===g;});return f?f.icon:'*';}
 function getToken(){return localStorage.getItem('pcp_gh_token')||'';}
 function setToken(t){localStorage.setItem('pcp_gh_token',t);}
