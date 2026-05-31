@@ -333,12 +333,13 @@ function criarItem(r,g,subs){
   else if(dias===2)dataTag='<span class="tag tag-urg">2d</span>';
 
   var opG=GRUPOS_DEF.map(function(x){return'<option value="'+x.nome+'" '+(r.grupo===x.nome?'selected':'')+'>'+x.nome+'</option>';}).join('');
+  var opG_fin=opG+'<option value="__FIN__" '+(r.grupo==='__FIN__'?'selected':'')+'> Finalizado</option>';
   var subSel='';
   if(subs){var opS=subs.map(function(s){return'<option value="'+s+'" '+(r.sub===s?'selected':'')+'>'+s+'</option>';}).join('');subSel='<select class="sel" onchange="onChangeSub(\''+r.id+'\',this.value)"><option value="">- submaquina -</option>'+opS+'</select>';}
   var opObs=OBS_OPCOES.map(function(o){return'<option value="'+o+'" '+(r.obs===o?'selected':'')+'>'+( o||'- sem observacao -')+'</option>';}).join('');
   var obsClass=r.obs?'obs-ativo':'';
 
-  div.innerHTML='<div class="item-top"><div class="item-desc">'+(r.descricao||'')+'</div><div class="item-pedido">'+(r.pedido||'')+'/'+( r.item||'')+'</div></div><div class="item-cliente">'+(r.cliente||'')+'</div><div class="item-tags"><span class="tag tag-qty">'+fmtQtd(r.qtd)+' '+(r.un||'')+'</span>'+dataTag+(r.sub?'<span class="tag tag-sub">'+(r.sub||'')+'</span>':'')+'</div><div class="item-selects"><select class="sel" onchange="onChangeGrupo(\''+r.id+'\',this.value)"><option value="">- selecionar maquina -</option>'+opG+'</select>'+subSel+'<select class="sel '+obsClass+'" onchange="onChangeObs(\''+r.id+'\',this.value)">'+opObs+'</select></div>';
+  div.innerHTML='<div class="item-top"><div class="item-desc">'+(r.descricao||'')+'</div><div class="item-pedido">'+(r.pedido||'')+'/'+( r.item||'')+'</div></div><div class="item-cliente">'+(r.cliente||'')+'</div><div class="item-tags"><span class="tag tag-qty">'+fmtQtd(r.qtd)+' '+(r.un||'')+'</span>'+dataTag+(r.sub?'<span class="tag tag-sub">'+(r.sub||'')+'</span>':'')+'</div><div class="item-selects"><select class="sel" onchange="onChangeGrupo(\''+r.id+'\',this.value)"><option value="">- selecionar maquina -</option>'+opG_fin+'</select>'+subSel+'<select class="sel '+obsClass+'" onchange="onChangeObs(\''+r.id+'\',this.value)">'+opObs+'</select></div>';
   return div;
 }
 
