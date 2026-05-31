@@ -346,9 +346,10 @@ function criarLinha(r,g){
   else if(dias===1)dataTag='<span class="tag tag-urg">AMANHA</span>';
   else if(dias===2)dataTag='<span class="tag tag-urg">2d</span>';
   var opG=GRUPOS.map(function(x){return'<option value="'+x.nome+'" '+(r.grupo===x.nome?'selected':'')+'>'+dispNome(x.nome)+'</option>';}).join('');
+  var opG_fin=opG+'<option value="__FIN__" '+(r.grupo==='__FIN__'?'selected':'')+'> Finalizado</option>';
   var gInfo=GRUPOS.find(function(x){return x.nome===r.grupo;});
   var hasSub=gInfo&&gInfo.subs.length;
-  var mc='<div class="maquina-cell"><select class="sel grupo '+(r.grupo?'':'sem-sel')+'" onchange="onChangeGrupo(\''+r.id+'\',this.value)"><option value="">- selecionar -</option>'+opG+'</select>';
+  var mc='<div class="maquina-cell"><select class="sel grupo '+(r.grupo?'':'sem-sel')+'" onchange="onChangeGrupo(\''+r.id+'\',this.value)"><option value="">- selecionar -</option>'+opG_fin+'</select>';
   if(hasSub){var opS=gInfo.subs.map(function(s){return'<option value="'+s+'" '+(r.sub===s?'selected':'')+'>'+s+'</option>';}).join('');mc+='<select class="sel sub" onchange="onChangeSub(\''+r.id+'\',this.value)"><option value="">- sub -</option>'+opS+'</select>';}
   mc+='</div>';
   var opObs=OBS_OPCOES.map(function(o){return'<option value="'+o+'" '+(r.obs===o?'selected':'')+'>'+( o||'- sem observacao -')+'</option>';}).join('');
