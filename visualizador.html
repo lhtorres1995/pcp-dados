@@ -225,12 +225,9 @@ function carregar(manual){
   }
   document.getElementById('dot').className='dot off';
   document.getElementById('update-txt').textContent='Atualizando...';
-  fetch(getAPI(),{headers:getHeaders()})
-    .then(function(res){
-      if(res.status===401){localStorage.removeItem('pcp_gh_token');throw new Error('Token invalido');}
-      if(!res.ok)throw new Error('HTTP '+res.status);
-      return res.json();
-    })
+  // leitura via raw (sem autenticação)
+  fetch(RAW_URL+'?t='+Date.now())
+    .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.text();})
     .then(function(json){
       ghSHA=json.sha;
       var raw=decodeURIComponent(escape(atob(json.content.replace(/\s/g,''))));
