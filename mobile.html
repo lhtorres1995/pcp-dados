@@ -177,10 +177,22 @@ function carregar(manual){
   if(manual&&autoInterval){clearInterval(autoInterval);autoInterval=null;}
   setDot('off');
   document.getElementById('update-txt').textContent='Atualizando...';
-  fetch(RAW_URL+'?t='+Date.now())
-    .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.text();})
-    .then(function(text){
-      DADOS=JSON.parse(text).filter(function(r){return !r.finalizado&&r.grupo&&r.grupo!=='__FIN__';});
+  var token=getToken();
+  var fetchPromise;
+  if(token){
+    // Com token: usa API do GitHub (sem cache, sempre atualizado)
+    fetchPromise=fetch(getAPI(),{headers:getHeaders()})
+      .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
+      .then(function(json){return JSON.parse(atob(json.content.replace(/\n/g,'')));});
+  } else {
+    // Sem token: fallback para RAW (pode ter cache de até 5min)
+    fetchPromise=fetch(RAW_URL+'?t='+Date.now())
+      .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.text();})
+      .then(function(text){return JSON.parse(text);});
+  }
+  fetchPromise
+    .then(function(dados){
+      DADOS=dados.filter(function(r){return !r.finalizado&&r.grupo&&r.grupo!=='__FIN__';});
       setDot('');
       var atualizado=DADOS.length&&DADOS[0].atualizado?DADOS[0].atualizado:'';
       document.getElementById('update-txt').textContent=atualizado||'Atualizado';
