@@ -223,7 +223,7 @@ function carregar(manual){
     // Com token: usa API do GitHub (sem cache, sempre atualizado)
     fetchPromise=fetch(getAPI(),{headers:getHeaders()})
       .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
-      .then(function(json){return JSON.parse(atob(json.content.replace(/\n/g,'')));});
+      .then(function(json){var bytes=Uint8Array.from(atob(json.content.replace(/\n/g,'')),function(c){return c.charCodeAt(0);});return JSON.parse(new TextDecoder('utf-8').decode(bytes));});
   } else {
     // Sem token: fallback para RAW (pode ter cache de até 5min)
     fetchPromise=fetch(RAW_URL+'?t='+Date.now())
