@@ -161,11 +161,11 @@ var secondsLeft=120;
 var countdownInterval=null;
 
 var GRUPOS=[
-  {nome:'FLEXO 250',icon:'F1',subs:[]},
-  {nome:'FLEXO 350',icon:'F2',subs:['KROMIA','ETIRAMA','NACBRAS']},
-  {nome:'TROQUELADORAS',icon:'TR',subs:[]},
+  {nome:'FLEXO 250',icon:'F1',subs:['FLEXO 1','FLEXO 2','FLEXO 3']},
+  {nome:'FLEXO 350',icon:'F2',subs:['ETIRAMA','KROMIA','NACBRAS']},
+  {nome:'TROQUELADORAS',icon:'TR',subs:['TROQUELADORA 1','TROQUELADORA 2','PULMÃO']},
   {nome:'TERMICA',icon:'TH',subs:[]},
-  {nome:'BATIDA',icon:'BA',subs:[]},
+  {nome:'BATIDA',icon:'BA',subs:['CHINESA','TURO']},
   {nome:'CORTE BROTECH / VOREY',icon:'CB',subs:['BROTECH','VOREY']},
   {nome:'REVISORAS',icon:'RE',subs:[]},
   {nome:'DIGITAL',icon:'DG',subs:[]},
@@ -323,6 +323,20 @@ function ordCompare(a,b){
 }
 function somarML(rows){return rows.reduce(function(acc,r){var v=parseFloat((r.metros||'').replace(',','.'));return acc+(isNaN(v)?0:v);},0);}
 function somarTempos(rows){var total=rows.reduce(function(acc,r){var h=tempoHoras(r);return acc+(h||0);},0);return total>0?formatarTempo(total):null;}
+var VELOCIDADES={
+  'FLEXO 1':2400,'FLEXO 2':2400,'FLEXO 3':2400,
+  'ETIRAMA':3000,'NACBRAS':2400,'KROMIA':2400,
+  'DIGITAL':2400,
+  'CHINESA':5000,'TURO':5000,
+  'TROQUELADORA 1':2400,'TROQUELADORA 2':2400,'PULMAO':2400,
+  'BROTECH':2400,'VOREY':900,
+  'TERMICA':360
+};
+function normChave(s){return(s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+function getVelocidade(r){
+  var chave=r.sub?normChave(r.sub):normChave(r.grupo);
+  return VELOCIDADES[chave]||null;
+}
 function tempoHoras(r){
   var GRUPOS_TEMPO={
     'FLEXO 250':'ml','FLEXO 350':'ml','TROQUELADORAS':'ml','TERMICA':'ml',
@@ -330,7 +344,7 @@ function tempoHoras(r){
   };
   var tipo=GRUPOS_TEMPO[r.grupo];
   if(!tipo||tipo==='none')return null;
-  var vel=parseFloat((r.velocidade||'').replace(',','.'));
+  var vel=getVelocidade(r);
   var setup=parseFloat((r.setup||'').replace(',','.'));
   var ml=parseFloat((r.metros||'').replace(',','.'));
   var qtd=parseFloat((r.qtd||'').replace(',','.'));
