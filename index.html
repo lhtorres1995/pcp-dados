@@ -239,7 +239,7 @@ function tempoHoras(r){
   const setup=parseFloat((r.setup||'').toString().replace(',','.'));
   const ml=parseFloat((r.metros||'').toString().replace(',','.'));
   if(!vel||vel<=0)return null;
-  const setupH=(isNaN(setup)||setup<=0)?0:(setup/60);
+  const setupH=(g==='DIGITAL'||isNaN(setup)||setup<=0)?0:(setup/60);
   if(gInfo.tipoTempo==='bat'){
     let qtdBat=parseFloat((r.qtd||'').toString().replace(',','.'));
     if(isNaN(qtdBat))return null;
