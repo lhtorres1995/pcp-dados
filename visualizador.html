@@ -349,7 +349,7 @@ function tempoHoras(r){
   var ml=parseFloat((r.metros||'').replace(',','.'));
   var qtd=parseFloat((r.qtd||'').replace(',','.'));
   if(!vel||vel<=0)return null;
-  var setupH=(isNaN(setup)||setup<=0)?0:(setup/60);
+  var setupH=(r.grupo==='DIGITAL'||isNaN(setup)||setup<=0)?0:(setup/60);
   if(tipo==='bat'){
     if(!qtd||isNaN(qtd))return null;
     var un=(r.un||'').toUpperCase().trim();
