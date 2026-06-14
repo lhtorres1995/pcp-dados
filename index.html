@@ -216,11 +216,26 @@ const OBS_OPCOES=['','Aguardando Faca','Aguardando Clichê','Aguardando Aprovaç
 function dispNome(g){const f=GRUPOS.find(x=>x.nome===g);return(f&&f.display)?f.display:(g||'');}
 function normGrupo(s){return(s||'').toString().toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');}
 // ── Tempo estimado ──
+const VELOCIDADES={
+  'FLEXO 1':2400,'FLEXO 2':2400,'FLEXO 3':2400,
+  'ETIRAMA':3000,'NACBRAS':2400,'KROMIA':2400,
+  'DIGITAL':2400,
+  'CHINESA':5000,'TURO':5000,
+  'TROQUELADORA 1':2400,'TROQUELADORA 2':2400,'PULMAO':2400,
+  'BROTECH':2400,'VOREY':900,
+  'TERMICA':360
+};
+function normChave(s){return(s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+function getVelocidade(r){
+  const sub=getSub(r);
+  const chave=sub?normChave(sub):normChave(getGrupo(r));
+  return VELOCIDADES[chave]||null;
+}
 function tempoHoras(r){
   const g=getGrupo(r);
   const gInfo=GRUPOS.find(x=>x.nome===g);
   if(!gInfo||gInfo.tipoTempo==='none')return null;
-  const vel=parseFloat((r.velocidade||'').toString().replace(',','.'));
+  const vel=getVelocidade(r);
   const setup=parseFloat((r.setup||'').toString().replace(',','.'));
   const ml=parseFloat((r.metros||'').toString().replace(',','.'));
   if(!vel||vel<=0)return null;
