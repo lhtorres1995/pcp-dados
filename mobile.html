@@ -166,15 +166,29 @@ function ordCompare(a,b){
   var da=parseDateBR(a.entrega),db=parseDateBR(b.entrega);
   return(da?da.getTime():9e12)-(db?db.getTime():9e12);
 }
+var VELOCIDADES={
+  'FLEXO 1':2400,'FLEXO 2':2400,'FLEXO 3':2400,
+  'ETIRAMA':3000,'NACBRAS':2400,'KROMIA':2400,
+  'DIGITAL':2400,
+  'CHINESA':5000,'TURO':5000,
+  'TROQUELADORA 1':2400,'TROQUELADORA 2':2400,'PULMAO':2400,
+  'BROTECH':2400,'VOREY':900,
+  'TERMICA':360
+};
+function normChave(s){return(s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+function getVelocidade(r){
+  var chave=r.sub?normChave(r.sub):normChave(r.grupo);
+  return VELOCIDADES[chave]||null;
+}
 function calcTempo(r){
   var gInfo=GRUPOS_DEF.find(function(x){return x.nome===r.grupo;});
   if(!gInfo||gInfo.tipoTempo==='none')return null;
-  var vel=parseFloat((r.velocidade||'').replace(',','.'));
+  var vel=getVelocidade(r);
   var setup=parseFloat((r.setup||'').replace(',','.'));
   var ml=parseFloat((r.metros||'').replace(',','.'));
   var qtd=parseFloat((r.qtd||'').replace(',','.'));
   if(!vel||vel<=0)return null;
-  var setupH=(isNaN(setup)||setup<=0)?0:(setup/60);
+  var setupH=(r.grupo==='DIGITAL'||isNaN(setup)||setup<=0)?0:(setup/60);
   if(gInfo.tipoTempo==='bat'){
     if(!qtd||isNaN(qtd))return null;
     var un=(r.un||'').toUpperCase().trim();
