@@ -114,6 +114,7 @@ tbody tr[draggable]:active{cursor:grabbing;opacity:.7}
   <div class="action-bar">
     <button class="btn primary" id="btn-processar" disabled onclick="processar()"><i class="ti ti-refresh"></i> Processar e cruzar dados</button>
     <button class="btn" id="btn-imprimir" onclick="imprimir()" style="display:none"><i class="ti ti-printer"></i> Imprimir programação</button>
+    <button class="btn" id="btn-ordenar-data" onclick="ordenarPorData()" style="display:none"><i class="ti ti-calendar-sort"></i> Ordenar por data</button>
     <button class="btn success" id="btn-sincronizar" onclick="sincronizar()" style="display:none"><i class="ti ti-cloud-upload"></i> Sincronizar</button>
     <button class="btn" id="btn-exportar" onclick="exportarCSV()" style="display:none"><i class="ti ti-download"></i> Exportar CSV</button>
     <button class="btn" onclick="limparToken()" style="font-size:12px;padding:6px 12px"><i class="ti ti-key"></i> Trocar token</button>
@@ -422,6 +423,7 @@ async function processar(){
   document.getElementById('resultados').style.display='block';
   document.getElementById('btn-imprimir').style.display='inline-flex';
   document.getElementById('btn-sincronizar').style.display='inline-flex';
+  document.getElementById('btn-ordenar-data').style.display='inline-flex';
   document.getElementById('btn-exportar').style.display='inline-flex';
   renderTabela();
 }
@@ -466,6 +468,14 @@ function sortBy(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=1;}do
 function filtrarEntrega(r,f){if(!f)return true;const d=parseDateBR(r.entrega);if(!d)return false;const h=new Date();h.setHours(0,0,0,0);const diff=Math.round((d-h)/864e5);if(f==='hoje')return diff===0;if(f==='amanha')return diff===1;if(f==='urgente')return diff<=2;if(f==='semana'){const fds=new Date(h);fds.setDate(h.getDate()+(6-h.getDay()));return d>=h&&d<=fds;}return true;}
 
 // ── Render ──
+function ordenarPorData(){
+  if(!confirm('Limpar a ordenação manual e organizar tudo por data de entrega?'))return;
+  Object.keys(overrides).forEach(function(id){
+    if(overrides[id])delete overrides[id].ordem;
+  });
+  salvarLocal();
+  renderTabela();
+}
 function renderTabela(){
   const busca=nl(document.getElementById('busca').value);
   const fMaq=document.getElementById('filtro-maquina').value;
