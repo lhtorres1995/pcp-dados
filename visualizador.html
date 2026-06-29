@@ -167,7 +167,9 @@ td.obs-col{width:180px}
 </div>
 <div class="filter-bar" id="filter-bar" style="display:none">
   <input type="text" id="busca" placeholder="Buscar cliente, produto, pedido..." oninput="renderGrupos()">
-  <select id="filtro-maquina" onchange="renderGrupos()"><option value="">Todas as maquinas</option></select>
+  <select id="filtro-maquina" onchange="onFiltroGrupo()"><option value="">Todas as maquinas</option></select>
+  <select id="filtro-submaquina" onchange="renderGrupos()" style="display:none"><option value="">Toda a maquina</option></select>
+  <button class="btn-hdr" id="btn-fixar-maq" onclick="fixarMinhaMaquina()" style="display:none"><i class="ti ti-pin" style="font-size:13px"></i> Fixar</button>
   <select id="filtro-entrega" onchange="renderGrupos()">
     <option value="">Qualquer entrega</option>
     <option value="hoje">Hoje</option>
@@ -273,6 +275,7 @@ function carregar(manual){
       DADOS.forEach(function(r){if(r.grupo&&maquinas.indexOf(r.grupo)===-1)maquinas.push(r.grupo);});
       maquinas.sort().forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;if(m===valAtual)o.selected=true;fM.appendChild(o);});
       document.getElementById('filter-bar').style.display='flex';
+      if(!window._minhaMaqRestaurada){window._minhaMaqRestaurada=true;restaurarMinhaMaquina();}
       document.getElementById('dot').className='dot';
       var atualizado=DADOS.length&&DADOS[0].atualizado?DADOS[0].atualizado:'';
       document.getElementById('update-txt').textContent=atualizado?'Atualizado: '+atualizado:'Atualizado';
@@ -439,13 +442,50 @@ function ordenarPorData(){
   agendarSalvar();
   renderGrupos();
 }
+function onFiltroGrupo(){
+  // ao trocar o grupo, popula as submáquinas correspondentes
+  var g=document.getElementById('filtro-maquina').value;
+  var selSub=document.getElementById('filtro-submaquina');
+  var btnFixar=document.getElementById('btn-fixar-maq');
+  var gInfo=GRUPOS.find(function(x){return x.nome===g;});
+  if(g&&gInfo&&gInfo.subs&&gInfo.subs.length){
+    selSub.innerHTML='<option value="">Toda a maquina</option>'+gInfo.subs.map(function(s){return'<option value="'+s+'">'+s+'</option>';}).join('');
+    selSub.style.display='';
+    btnFixar.style.display='inline-flex';
+  }else{
+    selSub.style.display='none';selSub.value='';
+    btnFixar.style.display='none';
+  }
+  renderGrupos();
+}
+function fixarMinhaMaquina(){
+  var g=document.getElementById('filtro-maquina').value;
+  var s=document.getElementById('filtro-submaquina').value;
+  try{localStorage.setItem('pcp_minha_maquina',JSON.stringify({grupo:g,sub:s}));}catch(e){}
+  alert('Maquina fixada! Ao abrir esta tela, o filtro sera aplicado automaticamente.\n\nPara remover, use "Limpar filtro" ou troque a selecao e fixe novamente.');
+}
+function restaurarMinhaMaquina(){
+  try{
+    var raw=localStorage.getItem('pcp_minha_maquina');
+    if(!raw)return;
+    var m=JSON.parse(raw);
+    if(m.grupo){
+      var selM=document.getElementById('filtro-maquina');
+      selM.value=m.grupo;
+      onFiltroGrupo();
+      if(m.sub){var selS=document.getElementById('filtro-submaquina');selS.value=m.sub;}
+    }
+  }catch(e){}
+}
 function renderGrupos(){
   var busca=nl(document.getElementById('busca').value);
   var fMaq=document.getElementById('filtro-maquina').value;
+  var fSub=document.getElementById('filtro-submaquina').value;
   var fEnt=document.getElementById('filtro-entrega').value;
   var fObs=document.getElementById('filtro-obs').value;
   var dados=DADOS.filter(function(r){
     if(fMaq&&r.grupo!==fMaq)return false;
+    if(fSub&&r.sub!==fSub)return false;
     if(!filtrarEntrega(r,fEnt))return false;
     if(fObs==='__COM__'&&!r.obs)return false;
   if(fObs&&fObs!=='__COM__'&&r.obs!==fObs)return false;
@@ -622,6 +662,11 @@ function criarLinha(r,g,subs,riscoData){
   if(dias<0)diasCell='<span style="color:#DC2626;font-weight:700">'+Math.abs(dias)+'d atraso</span>';
   else if(dias===0)diasCell='<span style="color:#EA580C;font-weight:700">hoje</span>';
   else diasCell='<span style="color:var(--text2)">'+dias+'d</span>';
+  // Data prevista de conclusão (do cálculo de risco da máquina)
+  if(riscoData&&riscoData.prevTxt){
+    var corPrev=riscoData.risco?'#DC2626':'var(--text3)';
+    diasCell+='<br><span style="font-size:9px;color:'+corPrev+'" title="Previsao de conclusao na fila desta maquina">prev '+riscoData.prevTxt+'</span>';
+  }
   var lockIco=temPend?'<i class="ti ti-lock lock-ico" title="'+(r.obs||'')+'"></i>':'';
   tr.innerHTML='<td class="pedido">'+lockIco+(r.pedido||'')+'</td><td class="item">'+(r.item||'')+'</td><td class="cliente">'+(r.cliente||'')+'</td><td class="produto">'+(r.produto||'')+'</td><td class="desc">'+(r.descricao||'')+'</td><td class="un" style="text-align:center">'+formatoCellV+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+(r.un||'')+'</td><td class="qtd" style="text-align:right">'+fmtQtd(r.metros||'')+'</td><td class="un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="un" style="text-align:center">'+tempoCell+'</td><td class="entrega">'+(r.entrega||'')+dataTag+'</td><td class="un" style="text-align:center">'+diasCell+'</td><td class="maquina-col">'+mc+'</td><td class="obs-col">'+obsCell+'</td>';
   return tr;
