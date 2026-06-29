@@ -51,7 +51,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min
 body.light .countdown.soon{background:#FCEBEB;color:#A32D2D}
 .btn-hdr{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid var(--btn-border);background:var(--btn-bg);color:var(--btn-color)}
 .btn-hdr:hover{filter:brightness(1.1)}
-.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 24px}
+.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:16px 24px}
 .stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px}
 .stat .label{font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
 .stat .value{font-size:26px;font-weight:700}
@@ -79,6 +79,33 @@ tbody tr{border-bottom:1px solid var(--border2)}
 tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--hover)}
 tbody tr.urgente-row{background:var(--urg-row)}
+/* Semáforo lateral de status (leitura à distância) */
+tbody tr td:first-child{border-left:5px solid transparent}
+tbody tr.st-atrasado td:first-child{border-left-color:#DC2626}
+tbody tr.st-hoje td:first-child{border-left-color:#EA580C}
+tbody tr.st-amanha td:first-child{border-left-color:#F59E0B}
+tbody tr.st-ok td:first-child{border-left-color:#16A34A}
+tbody tr.st-atrasado{background:rgba(220,38,38,.10)}
+@keyframes pulseAtraso{0%,100%{background:rgba(220,38,38,.08)}50%{background:rgba(220,38,38,.20)}}
+tbody tr.st-atrasado{animation:pulseAtraso 2.2s ease-in-out infinite}
+.tag-atraso{background:#DC2626;color:#fff;font-weight:700}
+.tag-risco{background:#F59E0B;color:#1a1a1a;font-weight:700}
+/* Barra de ocupação por máquina */
+.carga-wrap{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.carga-bar{height:9px;width:160px;border-radius:5px;background:rgba(128,128,128,.25);overflow:hidden}
+.carga-fill{height:100%;transition:width .3s;border-radius:5px}
+.carga-ok .carga-fill{background:#16A34A}
+.carga-meio .carga-fill{background:#F59E0B}
+.carga-alta .carga-fill{background:#DC2626}
+.carga-label{font-size:11px;color:var(--text3)}
+/* Modo TV: painel de parede, leitura à distância */
+.modo-tv .filter-bar,.modo-tv .btn-hdr,.modo-tv .maquina-col,.modo-tv .obs-col{display:none!important}
+.modo-tv .produto,.modo-tv .desc:nth-of-type(n),.modo-tv td:nth-child(11),.modo-tv td:nth-child(9),.modo-tv td:nth-child(10),.modo-tv td:nth-child(12),.modo-tv th:nth-child(11),.modo-tv th:nth-child(9),.modo-tv th:nth-child(10),.modo-tv th:nth-child(12){display:none}
+.modo-tv{font-size:17px}
+.modo-tv table{font-size:16px}
+.modo-tv .grupo-nome{font-size:22px}
+.modo-tv .stat .value{font-size:32px}
+.modo-tv .grupo-icon{width:36px;height:36px;font-size:14px}
 tbody td{padding:8px 12px;vertical-align:middle;color:var(--text2)}
 td.pedido{white-space:nowrap;font-weight:600;width:80px}
 td.item{white-space:nowrap;width:40px;color:var(--text3)}
@@ -122,6 +149,7 @@ td.obs-col{width:180px}
     <button class="btn-hdr" id="btn-tema" onclick="alternarTema()"><i class="ti ti-sun" style="font-size:13px"></i> Claro</button>
     <button class="btn-hdr" onclick="trocarToken()"><i class="ti ti-key" style="font-size:13px"></i> Token</button>
     <button class="btn-hdr" onclick="imprimir()"><i class="ti ti-printer" style="font-size:13px"></i> Imprimir</button>
+    <button class="btn-hdr" onclick="ordenarPorData()"><i class="ti ti-calendar-sort" style="font-size:13px"></i> Ordenar por data</button>
     <button class="btn-hdr" onclick="carregar(true)"><i class="ti ti-refresh" style="font-size:13px"></i> Atualizar</button>
     <div class="clock" id="clock"></div>
   </div>
@@ -129,7 +157,8 @@ td.obs-col{width:180px}
 <div class="stats-bar">
   <div class="stat blue"><div class="label">Pedidos na fila</div><div class="value" id="st-total">-</div></div>
   <div class="stat ok"><div class="label">Maquinas ativas</div><div class="value" id="st-maq">-</div></div>
-  <div class="stat danger"><div class="label">Urgentes</div><div class="value" id="st-urg">-</div></div>
+  <div class="stat danger"><div class="label">Atrasados</div><div class="value" id="st-atraso">-</div></div>
+  <div class="stat danger"><div class="label">Urgentes (≤2d)</div><div class="value" id="st-urg">-</div></div>
   <div class="stat warn"><div class="label">Aguardando</div><div class="value" id="st-obs">-</div></div>
 </div>
 <div class="filter-bar" id="filter-bar" style="display:none">
@@ -323,6 +352,40 @@ function ordCompare(a,b){
 }
 function somarML(rows){return rows.reduce(function(acc,r){var v=parseFloat((r.metros||'').replace(',','.'));return acc+(isNaN(v)?0:v);},0);}
 function somarTempos(rows){var total=rows.reduce(function(acc,r){var h=tempoHoras(r);return acc+(h||0);},0);return total>0?formatarTempo(total):null;}
+// ── Capacidade produtiva ──
+// Seg-Qui: 8h-18h = 9h úteis (1h almoço). Sex: 8h-17h = 8h úteis. Total 44h/semana.
+function horasUteisDia(d){
+  var dow=d.getDay(); // 0=dom,1=seg...6=sab
+  if(dow===0||dow===6)return 0;
+  if(dow===5)return 8; // sexta
+  return 9;            // seg a qui
+}
+// Quantos dias úteis (em horas) para escoar X horas de trabalho a partir de hoje
+function horasParaData(horas){
+  if(horas<=0)return new Date();
+  var d=new Date();d.setHours(8,0,0,0);
+  var restante=horas;
+  // consome o que sobra de hoje
+  var guard=0;
+  while(restante>0&&guard<400){
+    var cap=horasUteisDia(d);
+    if(cap>0){
+      if(restante<=cap){
+        // termina hoje/neste dia
+        return d;
+      }
+      restante-=cap;
+    }
+    d.setDate(d.getDate()+1);d.setHours(8,0,0,0);
+    guard++;
+  }
+  return d;
+}
+function backlogDias(horas){
+  // converte horas de fila em "dias úteis" aproximados (média 8.8h/dia)
+  if(horas<=0)return 0;
+  return horas/8.8;
+}
 var VELOCIDADES={
   'FLEXO 1':2400,'FLEXO 2':2400,'FLEXO 3':2400,
   'ETIRAMA':3000,'NACBRAS':2400,'KROMIA':2400,
@@ -366,6 +429,12 @@ function formatarTempo(h){
   if(mm===60)return(hh+1)+'h 00min';
   return hh+'h '+(mm<10?'0':'')+mm+'min';
 }
+function ordenarPorData(){
+  if(!confirm('Limpar a ordenação manual e organizar tudo por data de entrega?'))return;
+  DADOS.forEach(function(r){delete r.ordem;});
+  agendarSalvar();
+  renderGrupos();
+}
 function renderGrupos(){
   var busca=nl(document.getElementById('busca').value);
   var fMaq=document.getElementById('filtro-maquina').value;
@@ -382,7 +451,9 @@ function renderGrupos(){
   document.getElementById('st-total').textContent=dados.length;
   var maqSet={};dados.forEach(function(r){if(r.grupo)maqSet[r.grupo]=1;});
   document.getElementById('st-maq').textContent=Object.keys(maqSet).length;
-  document.getElementById('st-urg').textContent=dados.filter(function(r){return diasPara(r.entrega)<=2;}).length;
+  var elAtraso=document.getElementById('st-atraso');
+  if(elAtraso)elAtraso.textContent=dados.filter(function(r){return diasPara(r.entrega)<0;}).length;
+  document.getElementById('st-urg').textContent=dados.filter(function(r){var d=diasPara(r.entrega);return d>=0&&d<=2;}).length;
   document.getElementById('st-obs').textContent=DADOS.filter(function(r){return r.obs;}).length;
   var conteudo=document.getElementById('conteudo');
   if(!dados.length){conteudo.innerHTML='<div class="empty"><i class="ti ti-inbox" style="font-size:48px;display:block;margin-bottom:1rem"></i>Nenhum pedido encontrado.</div>';return;}
@@ -403,14 +474,29 @@ function renderGrupos(){
     if(mlTotal>0)totStr+=' - '+fmtQtd(mlTotal)+' m/l';
     if(tpTotal)totStr+=' - '+tpTotal+' estimado';
     var urgCount=itens.filter(function(r){return diasPara(r.entrega)<=2;}).length;
+    // ── Carga/ocupação da máquina ──
+    var horasFila=itens.reduce(function(a,r){return a+(tempoHoras(r)||0);},0);
+    var bl=backlogDias(horasFila);
+    var cargaCls=bl<=1?'carga-ok':bl<=2.5?'carga-meio':'carga-alta';
+    var cargaPct=Math.min(100,(bl/3)*100);
+    var cargaHTML=horasFila>0?'<div class="carga-wrap"><div class="carga-bar '+cargaCls+'"><div class="carga-fill" style="width:'+cargaPct+'%"></div></div><span class="carga-label">'+formatarTempo(horasFila)+' na fila &middot; '+bl.toFixed(1).replace('.',',')+' dias de backlog</span></div>':'';
+    // ── Risco por item: previsão de conclusão acumulada vs entrega ──
+    var riscoMap={};var acumH=0;
+    itens.forEach(function(r){
+      acumH+=(tempoHoras(r)||0);
+      var prev=horasParaData(acumH);
+      var ent=parseDateBR(r.entrega);
+      var risco=ent&&prev.getTime()>ent.getTime();
+      riscoMap[r.id]={risco:risco,prevTxt:prev.toLocaleDateString('pt-BR')};
+    });
     var card=document.createElement('div');card.className='grupo-card'+(temUrg?' tem-urgente':'');
-    card.innerHTML='<div class="grupo-header"><div class="grupo-nome"><div class="grupo-icon">'+(gInfo?gInfo.icon:'??')+'</div>'+g+'</div><div class="grupo-info"><span class="grupo-count">'+itens.length+' pedidos</span><span class="grupo-total">'+totStr+'</span>'+(urgCount>0?'<span class="urg-badge-group">'+urgCount+' urgente'+(urgCount>1?'s':'')+'</span>':'')+'</div></div><div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Item</th><th>Cliente</th><th>Produto</th><th>Descricao</th><th>Formato</th><th style="text-align:right">Qtd.</th><th>Un.</th><th style="text-align:right">M.L.</th><th>Larg.MP</th><th>Materia Prima</th><th>Tempo Est.</th><th>Entrega</th><th>Maquina</th><th>Observacao</th></tr></thead><tbody id="tbody-'+g.replace(/[^a-z0-9]/gi,'_')+'"></tbody></table></div>';
+    card.innerHTML='<div class="grupo-header"><div class="grupo-nome"><div class="grupo-icon">'+(gInfo?gInfo.icon:'??')+'</div>'+g+'</div><div class="grupo-info"><span class="grupo-count">'+itens.length+' pedidos</span><span class="grupo-total">'+totStr+'</span>'+(urgCount>0?'<span class="urg-badge-group">'+urgCount+' urgente'+(urgCount>1?'s':'')+'</span>':'')+'</div></div>'+cargaHTML+'<div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Item</th><th>Cliente</th><th>Produto</th><th>Descricao</th><th>Formato</th><th style="text-align:right">Qtd.</th><th>Un.</th><th style="text-align:right">M.L.</th><th>Larg.MP</th><th>Materia Prima</th><th>Tempo Est.</th><th>Entrega</th><th>Maquina</th><th>Observacao</th></tr></thead><tbody id="tbody-'+g.replace(/[^a-z0-9]/gi,'_')+'"></tbody></table></div>';
     container.appendChild(card);
     var tbody=card.querySelector('tbody');
     if(subs){
-      subs.forEach(function(sub){var si=itens.filter(function(r){return r.sub===sub;});if(!si.length)return;var st=document.createElement('tr');var mlS=somarML(si),tpS=somarTempos(si);var ext=[];if(mlS>0)ext.push(fmtQtd(mlS)+' m/l');if(tpS)ext.push(tpS);st.className='sub-header';st.innerHTML='<td colspan="15">> '+sub+' - '+si.length+' pedido(s)'+(ext.length?' &middot; '+ext.join(' &middot; '):'')+'</td>';tbody.appendChild(st);si.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs));});});
-      var sem=itens.filter(function(r){return !r.sub;});if(sem.length){var st2=document.createElement('tr');var mlSm=somarML(sem),tpSm=somarTempos(sem);var extSm=[];if(mlSm>0)extSm.push(fmtQtd(mlSm)+' m/l');if(tpSm)extSm.push(tpSm);st2.className='sub-header';st2.innerHTML='<td colspan="15" style="color:var(--text3)"> Sem submaquina - '+sem.length+' pedido(s)'+(extSm.length?' &middot; '+extSm.join(' &middot; '):'')+'</td>';tbody.appendChild(st2);sem.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs));});}
-    }else{itens.forEach(function(r){tbody.appendChild(criarLinha(r,g,null));});}
+      subs.forEach(function(sub){var si=itens.filter(function(r){return r.sub===sub;});if(!si.length)return;var st=document.createElement('tr');var mlS=somarML(si),tpS=somarTempos(si);var ext=[];if(mlS>0)ext.push(fmtQtd(mlS)+' m/l');if(tpS)ext.push(tpS);st.className='sub-header';st.innerHTML='<td colspan="15">> '+sub+' - '+si.length+' pedido(s)'+(ext.length?' &middot; '+ext.join(' &middot; '):'')+'</td>';tbody.appendChild(st);si.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs,riscoMap[r.id]));});});
+      var sem=itens.filter(function(r){return !r.sub;});if(sem.length){var st2=document.createElement('tr');var mlSm=somarML(sem),tpSm=somarTempos(sem);var extSm=[];if(mlSm>0)extSm.push(fmtQtd(mlSm)+' m/l');if(tpSm)extSm.push(tpSm);st2.className='sub-header';st2.innerHTML='<td colspan="15" style="color:var(--text3)"> Sem submaquina - '+sem.length+' pedido(s)'+(extSm.length?' &middot; '+extSm.join(' &middot; '):'')+'</td>';tbody.appendChild(st2);sem.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs,riscoMap[r.id]));});}
+    }else{itens.forEach(function(r){tbody.appendChild(criarLinha(r,g,null,riscoMap[r.id]));});}
   });
   conteudo.appendChild(container);
 }
@@ -450,10 +536,11 @@ function onDrop(e){
   return false;
 }
 
-function criarLinha(r,g,subs){
+function criarLinha(r,g,subs,riscoData){
   var dias=diasPara(r.entrega);
   var tr=document.createElement('tr');
-  if(dias<=2)tr.className='urgente-row';
+  var stCls=dias<0?'st-atrasado':dias===0?'st-hoje':dias<=2?'st-amanha':'st-ok';
+  tr.className=stCls;
   tr.dataset.id=r.id;
   tr.setAttribute('draggable','true');
   tr.addEventListener('dragstart',onDragStart);
@@ -462,9 +549,12 @@ function criarLinha(r,g,subs){
   tr.addEventListener('drop',onDrop);
   tr.addEventListener('dragend',onDragEnd);
   var dataTag='';
-  if(dias<=0)dataTag='<span class="tag tag-hoje">HOJE</span>';
+  if(dias<0)dataTag='<span class="tag tag-atraso">ATRASADO</span>';
+  else if(dias===0)dataTag='<span class="tag tag-hoje">HOJE</span>';
   else if(dias===1)dataTag='<span class="tag tag-urg">AMANHA</span>';
   else if(dias===2)dataTag='<span class="tag tag-urg">2d</span>';
+  // Alerta de risco: previsão de conclusão passa da entrega
+  if(dias>=0&&riscoData&&riscoData.risco)dataTag+=' <span class="tag tag-risco" title="Previsão: '+riscoData.prevTxt+'">PODE ATRASAR</span>';
   var opG=GRUPOS.map(function(x){return'<option value="'+x.nome+'" '+(r.grupo===x.nome?'selected':'')+'>'+x.nome+'</option>';}).join('');
   opG+='<option value="__FIN__"> Finalizado</option>';
   var hasSub=subs&&subs.length;
@@ -539,6 +629,12 @@ function lImp(r,g){
 function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
 tick();setInterval(tick,1000);
 aplicarTema();
+// ── Modo TV / chão de fábrica ──
+var ehTV=new URLSearchParams(location.search).get('tv')==='1';
+if(ehTV){
+  document.body.classList.add('modo-tv');
+  setInterval(function(){carregar(false);},30000);
+}
 carregar(true);
 </script>
 </body>
