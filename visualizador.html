@@ -415,10 +415,52 @@ function renderGrupos(){
   conteudo.appendChild(container);
 }
 
+// ── Drag & Drop ──
+var dragSrcId=null;
+function onDragStart(e){dragSrcId=this.dataset.id;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','');}
+function onDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';document.querySelectorAll('tbody tr[draggable]').forEach(function(r){r.classList.remove('drag-over');});this.classList.add('drag-over');return false;}
+function onDragLeave(){this.classList.remove('drag-over');}
+function onDragEnd(){document.querySelectorAll('tbody tr[draggable]').forEach(function(r){r.classList.remove('drag-over');});}
+function onDrop(e){
+  e.stopPropagation();
+  document.querySelectorAll('tbody tr[draggable]').forEach(function(r){r.classList.remove('drag-over');});
+  var dstId=this.dataset.id;
+  if(!dragSrcId||dragSrcId===dstId)return false;
+  var srcR=DADOS.find(function(x){return x.id===dragSrcId;});
+  var dstR=DADOS.find(function(x){return x.id===dstId;});
+  if(!srcR||!dstR)return false;
+  // Só permite dentro do mesmo grupo
+  if(srcR.grupo!==dstR.grupo)return false;
+  // Pega todos os itens visíveis com data-id na ordem DOM
+  var visiveis=[].slice.call(document.querySelectorAll('tbody tr[data-id]')).map(function(tr){return tr.dataset.id;});
+  var lista=visiveis.filter(function(id){
+    var r=DADOS.find(function(x){return x.id===id;});
+    return r&&r.grupo===srcR.grupo;
+  });
+  var si=lista.indexOf(dragSrcId),di=lista.indexOf(dstId);
+  if(si<0||di<0)return false;
+  lista.splice(si,1);lista.splice(di,0,dragSrcId);
+  // Atribui campo ordem em DADOS
+  lista.forEach(function(id,idx){
+    var r=DADOS.find(function(x){return x.id===id;});
+    if(r)r.ordem=(idx+1)*10;
+  });
+  agendarSalvar();
+  renderGrupos();
+  return false;
+}
+
 function criarLinha(r,g,subs){
   var dias=diasPara(r.entrega);
   var tr=document.createElement('tr');
   if(dias<=2)tr.className='urgente-row';
+  tr.dataset.id=r.id;
+  tr.setAttribute('draggable','true');
+  tr.addEventListener('dragstart',onDragStart);
+  tr.addEventListener('dragover',onDragOver);
+  tr.addEventListener('dragleave',onDragLeave);
+  tr.addEventListener('drop',onDrop);
+  tr.addEventListener('dragend',onDragEnd);
   var dataTag='';
   if(dias<=0)dataTag='<span class="tag tag-hoje">HOJE</span>';
   else if(dias===1)dataTag='<span class="tag tag-urg">AMANHA</span>';
