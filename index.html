@@ -120,6 +120,7 @@ tbody tr[draggable]:active{cursor:grabbing;opacity:.7}
     <button class="btn" id="btn-imprimir" onclick="imprimir()" style="display:none"><i class="ti ti-printer"></i> Imprimir programação</button>
     <button class="btn" id="btn-ordenar-data" onclick="ordenarPorData()" style="display:none"><i class="ti ti-calendar-sort"></i> Ordenar por data</button>
     <button class="btn" id="btn-otimizar" onclick="otimizarFila()" style="display:none"><i class="ti ti-wand"></i> Otimizar fila</button>
+    <button class="btn" id="btn-ver-fila" onclick="verFila()" style="display:none"><i class="ti ti-list-numbers"></i> Ver fila de produção</button>
     <button class="btn success" id="btn-sincronizar" onclick="sincronizar()" style="display:none"><i class="ti ti-cloud-upload"></i> Sincronizar</button>
     <button class="btn" id="btn-exportar" onclick="exportarCSV()" style="display:none"><i class="ti ti-download"></i> Exportar CSV</button>
     <button class="btn" onclick="limparToken()" style="font-size:12px;padding:6px 12px"><i class="ti ti-key"></i> Trocar token</button>
@@ -300,7 +301,7 @@ function extrairFormato(desc){
 
 // ── Estado ──
 let dadosEntregas=[],dadosPCP=[],dadosCruzados=[],overrides={};
-let sortCol='entrega',sortDir=1;
+let sortCol='fila',sortDir=1;
 
 // ── Utils ──
 function nz(s){return(s||'').toString().trim();}
@@ -447,6 +448,7 @@ async function processar(){
   document.getElementById('btn-sincronizar').style.display='inline-flex';
   document.getElementById('btn-ordenar-data').style.display='inline-flex';
   document.getElementById('btn-otimizar').style.display='inline-flex';
+  document.getElementById('btn-ver-fila').style.display='inline-flex';
   document.getElementById('btn-exportar').style.display='inline-flex';
   renderTabela();
 }
@@ -575,7 +577,14 @@ function ordenarPorData(){
   Object.keys(overrides).forEach(function(id){
     if(overrides[id])delete overrides[id].ordem;
   });
+  sortCol='fila';sortDir=1;
+  document.querySelectorAll('.sort-icon').forEach(el=>{el.textContent='↕';el.closest('th').classList.remove('sorted');});
   salvarLocal();
+  renderTabela();
+}
+function verFila(){
+  sortCol='fila';sortDir=1;
+  document.querySelectorAll('.sort-icon').forEach(el=>{el.textContent='↕';el.closest('th').classList.remove('sorted');});
   renderTabela();
 }
 var selLote=new Set();
@@ -643,10 +652,11 @@ function renderTabela(){
     if(busca&&!nl(r.cliente).includes(busca)&&!nl(r.produto).includes(busca)&&!nl(r.pedido).includes(busca)&&!nl(r.descricao).includes(busca))return false;
     return true;
   });
-  if(sortCol==='entrega'&&sortDir===1){
+  if(sortCol==='fila'){
+    // Ordem da fila de produção (manual/otimizada, com fallback para data)
     dados.sort(ordCompare);
   }else{
-    dados.sort((a,b)=>{let va=a[sortCol]||'',vb=b[sortCol]||'';if(sortCol==='entrega'){const da=parseDateBR(va),db=parseDateBR(vb);va=da?da.getTime():9e12;vb=db?db.getTime():9e12;}else if(sortCol==='qtd'){va=parseFloat((va+'').replace(',','.'))||0;vb=parseFloat((vb+'').replace(',','.'))||0;}return va<vb?-sortDir:va>vb?sortDir:0;});
+    dados.sort((a,b)=>{let va=a[sortCol]||'',vb=b[sortCol]||'';if(sortCol==='entrega'){const da=parseDateBR(va),db=parseDateBR(vb);va=da?da.getTime():9e12;vb=db?db.getTime():9e12;}else if(sortCol==='qtd'||sortCol==='metros'){va=parseFloat((va+'').replace(/\./g,'').replace(',','.'))||0;vb=parseFloat((vb+'').replace(/\./g,'').replace(',','.'))||0;}return va<vb?-sortDir:va>vb?sortDir:0;});
   }
   const tbody=document.getElementById('tabela-body'),empty=document.getElementById('empty');
   tbody.innerHTML='';
