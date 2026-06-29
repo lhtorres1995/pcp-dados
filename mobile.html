@@ -113,6 +113,7 @@ body.light .bottom-bar{background:#fff;border-top-color:rgba(0,0,0,0.1)}
 <div class="filter-section">
   <input class="search-box" type="text" id="busca" placeholder="Buscar cliente, produto, pedido..." oninput="renderGrupos()">
   <div class="filter-chips" id="chips-maquina"></div>
+  <div class="filter-chips" id="chips-sub" style="display:none;margin-top:6px"></div>
 </div>
 <div class="grupos" id="grupos"><div class="loading"><i class="ti ti-loader"></i><p>Carregando...</p></div></div>
 <div class="bottom-bar">
@@ -129,6 +130,7 @@ var RAW_URL='https://raw.githubusercontent.com/'+GH_REPO+'/refs/heads/main/'+GH_
 var ghSHA=null;
 var DADOS=[];
 var filtroMaq='';
+var filtroSub='';
 var autoInterval=null;
 
 var GRUPOS_DEF=[
@@ -259,6 +261,7 @@ function carregar(manual){
       setDot('');
       var atualizado=DADOS.length&&DADOS[0].atualizado?DADOS[0].atualizado:'';
       document.getElementById('update-txt').textContent=atualizado||'Atualizado';
+      if(!window._maqRestaurada){window._maqRestaurada=true;restaurarMaqMob();}
       renderChips();
       renderGrupos();
       if(!autoInterval)autoInterval=setInterval(function(){carregar(false);},120000);
@@ -307,13 +310,37 @@ function renderChips(){
   var html='<span class="chip'+(filtroMaq===''?' ativo':'')+'" onclick="setFiltro(\'\')">Todas</span>';
   maquinas.forEach(function(m){html+='<span class="chip'+(filtroMaq===m?' ativo':'')+'" onclick="setFiltro(\''+m+'\')">'+m+'</span>';});
   container.innerHTML=html;
+  // Submáquinas do grupo selecionado
+  var subC=document.getElementById('chips-sub');
+  var gInfo=GRUPOS_DEF.find(function(x){return x.nome===filtroMaq;});
+  if(filtroMaq&&gInfo&&gInfo.subs&&gInfo.subs.length){
+    var sh='<span class="chip'+(filtroSub===''?' ativo':'')+'" onclick="setFiltroSub(\'\')">Toda</span>';
+    gInfo.subs.forEach(function(s){sh+='<span class="chip'+(filtroSub===s?' ativo':'')+'" onclick="setFiltroSub(\''+s+'\')">'+s+'</span>';});
+    sh+='<span class="chip" style="background:#185FA5;color:#fff" onclick="fixarMaqMob()">📌 Fixar</span>';
+    subC.innerHTML=sh;subC.style.display='flex';
+  }else{
+    subC.style.display='none';subC.innerHTML='';
+  }
 }
-function setFiltro(m){filtroMaq=m;renderChips();renderGrupos();}
+function setFiltro(m){filtroMaq=m;filtroSub='';renderChips();renderGrupos();}
+function setFiltroSub(s){filtroSub=s;renderChips();renderGrupos();}
+function fixarMaqMob(){
+  try{localStorage.setItem('pcp_minha_maquina',JSON.stringify({grupo:filtroMaq,sub:filtroSub}));}catch(e){}
+  alert('Maquina fixada! Sera aplicada automaticamente ao abrir.');
+}
+function restaurarMaqMob(){
+  try{
+    var raw=localStorage.getItem('pcp_minha_maquina');if(!raw)return;
+    var m=JSON.parse(raw);
+    if(m.grupo){filtroMaq=m.grupo;filtroSub=m.sub||'';}
+  }catch(e){}
+}
 
 function renderGrupos(){
   var busca=nl(document.getElementById('busca').value);
   var dados=DADOS.filter(function(r){
     if(filtroMaq&&r.grupo!==filtroMaq)return false;
+    if(filtroSub&&r.sub!==filtroSub)return false;
     if(busca&&!nl(r.cliente).includes(busca)&&!nl(r.produto).includes(busca)&&!nl(r.pedido).includes(busca)&&!nl(r.descricao).includes(busca))return false;
     return true;
   });
