@@ -86,6 +86,8 @@ td.col-obs{width:190px}
 tbody tr.drag-over{outline:2px dashed #185FA5;background:#E6F1FB}
 tbody tr.atrasado-row{background:rgba(220,38,38,.07)}
 tbody tr.atrasado-row td:first-child{border-left:4px solid #DC2626}
+tbody tr.troca-setup{border-top:2px dashed #F59E0B!important}
+.setup-flag{display:inline-block;font-size:9px;background:#FEF3C7;color:#92400E;padding:1px 5px;border-radius:4px;margin-left:4px;font-weight:600}
 tbody tr[draggable]{cursor:grab}
 tbody tr[draggable]:active{cursor:grabbing;opacity:.7}
 </style>
@@ -117,6 +119,7 @@ tbody tr[draggable]:active{cursor:grabbing;opacity:.7}
     <button class="btn primary" id="btn-processar" disabled onclick="processar()"><i class="ti ti-refresh"></i> Processar e cruzar dados</button>
     <button class="btn" id="btn-imprimir" onclick="imprimir()" style="display:none"><i class="ti ti-printer"></i> Imprimir programação</button>
     <button class="btn" id="btn-ordenar-data" onclick="ordenarPorData()" style="display:none"><i class="ti ti-calendar-sort"></i> Ordenar por data</button>
+    <button class="btn" id="btn-otimizar" onclick="otimizarFila()" style="display:none"><i class="ti ti-wand"></i> Otimizar fila</button>
     <button class="btn success" id="btn-sincronizar" onclick="sincronizar()" style="display:none"><i class="ti ti-cloud-upload"></i> Sincronizar</button>
     <button class="btn" id="btn-exportar" onclick="exportarCSV()" style="display:none"><i class="ti ti-download"></i> Exportar CSV</button>
     <button class="btn" onclick="limparToken()" style="font-size:12px;padding:6px 12px"><i class="ti ti-key"></i> Trocar token</button>
@@ -127,6 +130,7 @@ tbody tr[draggable]:active{cursor:grabbing;opacity:.7}
     <div class="stat warn"><div class="label">Sem máquina</div><div class="value" id="st-sem">0</div></div>
     <div class="stat"><div class="label">Máquinas ativas</div><div class="value" id="st-maq">0</div></div>
     <div class="stat danger"><div class="label">Urgentes (≤2 dias)</div><div class="value" id="st-urg">0</div></div>
+    <div class="stat ok"><div class="label">No prazo (finalizados)</div><div class="value" id="st-prazo">—</div></div>
   </div>
   <div id="resultados" style="display:none">
     <div class="alert-sem" id="alert-sem" style="display:none">
@@ -177,6 +181,7 @@ tbody tr[draggable]:active{cursor:grabbing;opacity:.7}
           <th>Largura MP</th>
           <th>Matéria Prima</th>
           <th>Tempo Est.</th>
+          <th>Dias</th>
           <th onclick="sortBy('entrega')" class="sorted">Entrega <span class="sort-icon" id="si-entrega">↑</span></th>
           <th onclick="sortBy('status')">Status <span class="sort-icon" id="si-status">↕</span></th>
           <th>Máquina</th>
@@ -333,6 +338,8 @@ async function carregarDoGitHub(){
         if(r.sub)overrides[r.id].sub=r.sub;
         if(r.obs)overrides[r.id].obs=r.obs;
         if(r.ordem!==undefined&&r.ordem!==null&&r.ordem!=='')overrides[r.id].ordem=r.ordem;
+        if(r.finalizadoEm)overrides[r.id].finalizadoEm=r.finalizadoEm;
+        if(r.noPrazo!==undefined&&r.noPrazo!==null)overrides[r.id].noPrazo=r.noPrazo;
         if(r.finalizado===true||r.finalizado==='true')overrides[r.id].grupo='__FIN__';
       });
       console.log('GitHub carregado:',data.length,'registros');
@@ -356,6 +363,8 @@ async function sincronizar(){
       descricao:r.descricao,qtd:r.qtd,un:r.un,entrega:r.entrega,status:r.status,
       grupo:getGrupo(r)||'',sub:getSub(r)||'',obs:getObs(r)||'',
       ordem:getOrdem(r),
+      finalizadoEm:(overrides[r.id]&&overrides[r.id].finalizadoEm)||'',
+      noPrazo:(overrides[r.id]&&overrides[r.id].noPrazo!==undefined)?overrides[r.id].noPrazo:null,
       metros:r.metros||'',velocidade:r.velocidade||'',setup:r.setup||'',
       mp:r.mp||'',largMP:r.largMP||'',
       finalizado:isFinalizado(r),atualizado:new Date().toLocaleString('pt-BR')
@@ -437,6 +446,7 @@ async function processar(){
   document.getElementById('btn-imprimir').style.display='inline-flex';
   document.getElementById('btn-sincronizar').style.display='inline-flex';
   document.getElementById('btn-ordenar-data').style.display='inline-flex';
+  document.getElementById('btn-otimizar').style.display='inline-flex';
   document.getElementById('btn-exportar').style.display='inline-flex';
   renderTabela();
 }
@@ -467,20 +477,99 @@ function atualizarStats(){
   document.getElementById('st-sem').textContent=sem.length;
   document.getElementById('st-maq').textContent=new Set(ativos.map(r=>getGrupo(r)).filter(Boolean)).size;
   document.getElementById('st-urg').textContent=urg.length;
+  // Cumprimento de prazo entre os finalizados que têm registro
+  const finalizados=dadosCruzados.filter(r=>isFinalizado(r)&&overrides[r.id]&&overrides[r.id].noPrazo!==undefined&&overrides[r.id].noPrazo!==null);
+  const elPrazo=document.getElementById('st-prazo');
+  if(elPrazo){
+    if(finalizados.length){
+      const noPrazo=finalizados.filter(r=>overrides[r.id].noPrazo===true).length;
+      const pct=Math.round((noPrazo/finalizados.length)*100);
+      elPrazo.textContent=pct+'%';
+      elPrazo.title=noPrazo+' de '+finalizados.length+' finalizados no prazo';
+    }else{
+      elPrazo.textContent='—';
+    }
+  }
   const a=document.getElementById('alert-sem');
   if(sem.length){a.style.display='flex';document.getElementById('alert-sem-txt').textContent=sem.length+' pedido(s) sem máquina definida.';}
   else a.style.display='none';
 }
-function onSelectGrupo(id,val){overrides[id]=overrides[id]||{};overrides[id].grupo=val;overrides[id].sub='';salvarLocal();atualizarStats();renderTabela();}
+function registrarFinalizacao(id){
+  const r=dadosCruzados.find(x=>x.id===id);
+  if(!r)return;
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  const ent=parseDateBR(r.entrega);
+  overrides[id]=overrides[id]||{};
+  overrides[id].finalizadoEm=hoje.toLocaleDateString('pt-BR');
+  overrides[id].noPrazo=ent?(hoje.getTime()<=ent.getTime()):null;
+}
+function onSelectGrupo(id,val){overrides[id]=overrides[id]||{};if(val==='__FIN__')registrarFinalizacao(id);overrides[id].grupo=val;overrides[id].sub='';salvarLocal();atualizarStats();renderTabela();}
 function onSelectSub(id,val){overrides[id]=overrides[id]||{};overrides[id].sub=val;salvarLocal();renderTabela();}
 function onSelectObs(id,val){overrides[id]=overrides[id]||{};overrides[id].obs=val;salvarLocal();renderTabela();}
-function finalizarGrupo(g){dadosCruzados.filter(r=>getGrupo(r)===g).forEach(r=>{overrides[r.id]=overrides[r.id]||{};overrides[r.id].grupo='__FIN__';overrides[r.id].sub='';});salvarLocal();atualizarStats();renderTabela();}
+function finalizarGrupo(g){dadosCruzados.filter(r=>getGrupo(r)===g).forEach(r=>{registrarFinalizacao(r.id);overrides[r.id]=overrides[r.id]||{};overrides[r.id].grupo='__FIN__';overrides[r.id].sub='';});salvarLocal();atualizarStats();renderTabela();}
 
 // ── Sort ──
 function sortBy(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=1;}document.querySelectorAll('.sort-icon').forEach(el=>{el.textContent='↕';el.closest('th').classList.remove('sorted');});const si=document.getElementById('si-'+col);if(si){si.textContent=sortDir===1?'↑':'↓';si.closest('th').classList.add('sorted');}renderTabela();}
 function filtrarEntrega(r,f){if(!f)return true;const d=parseDateBR(r.entrega);if(!d)return false;const h=new Date();h.setHours(0,0,0,0);const diff=Math.round((d-h)/864e5);if(f==='hoje')return diff===0;if(f==='amanha')return diff===1;if(f==='urgente')return diff<=2;if(f==='semana'){const fds=new Date(h);fds.setDate(h.getDate()+(6-h.getDay()));return d>=h&&d<=fds;}return true;}
 
 // ── Render ──
+// Normaliza chave de agrupamento (MP base + largura) para sequenciar trabalhos similares
+function chaveSetup(r){
+  const mp=limparMP(r.mp||'').toUpperCase().replace(/\s+/g,' ').trim();
+  const larg=(r.largMP||'').toString().trim();
+  return larg+'|'+mp;
+}
+function otimizarFila(){
+  if(!confirm('Sugerir uma sequência otimizada por máquina?\n\nRegra: pendências por último, urgência por data, agrupando matéria-prima e largura iguais para reduzir trocas de setup.\n\nVocê ainda poderá ajustar manualmente depois.'))return;
+  // Agrupa itens ativos por grupo de máquina
+  const porGrupo={};
+  dadosCruzados.forEach(r=>{
+    if(isFinalizado(r))return;
+    const g=getGrupo(r);if(!g)return;
+    const sub=getSub(r)||'__POOL__';
+    const chave=g+'||'+sub;
+    if(!porGrupo[chave])porGrupo[chave]=[];
+    porGrupo[chave].push(r);
+  });
+  Object.keys(porGrupo).forEach(chave=>{
+    let lista=porGrupo[chave];
+    // 1) separa com e sem pendência (pendência vai pro fim)
+    const semPend=lista.filter(r=>!getObs(r));
+    const comPend=lista.filter(r=>getObs(r));
+    // 2) ordena cada bloco por data de entrega
+    const porData=(a,b)=>{const da=parseDateBR(a.entrega),db=parseDateBR(b.entrega);return(da?da.getTime():9e12)-(db?db.getTime():9e12);};
+    semPend.sort(porData);comPend.sort(porData);
+    // 3) dentro da ordem por data, agrupa setups iguais sem furar muito a fila:
+    //    varre a lista e, para cada item, puxa logo atrás os de mesmo setup que estejam até 2 dias depois
+    function agrupaSetup(arr){
+      const resultado=[];const usado=new Array(arr.length).fill(false);
+      for(let i=0;i<arr.length;i++){
+        if(usado[i])continue;
+        resultado.push(arr[i]);usado[i]=true;
+        const ref=chaveSetup(arr[i]);
+        const dRef=parseDateBR(arr[i].entrega);
+        for(let j=i+1;j<arr.length;j++){
+          if(usado[j])continue;
+          if(chaveSetup(arr[j])===ref){
+            const dJ=parseDateBR(arr[j].entrega);
+            // só agrupa se não atrasar demais (entrega até 2 dias após a do item de referência)
+            if(!dRef||!dJ||(dJ.getTime()-dRef.getTime())<=2*864e5){
+              resultado.push(arr[j]);usado[j]=true;
+            }
+          }
+        }
+      }
+      return resultado;
+    }
+    const ordenada=agrupaSetup(semPend).concat(agrupaSetup(comPend));
+    // 4) grava ordem
+    ordenada.forEach((r,idx)=>{
+      overrides[r.id]=overrides[r.id]||{};
+      overrides[r.id].ordem=(idx+1)*10;
+    });
+  });
+  salvarLocal();renderTabela();
+}
 function ordenarPorData(){
   if(!confirm('Limpar a ordenação manual e organizar tudo por data de entrega?'))return;
   Object.keys(overrides).forEach(function(id){
@@ -567,7 +656,7 @@ function renderTabela(){
     const grupos={},fins=[],sems=[];
     dados.forEach(r=>{if(isFinalizado(r)){fins.push(r);return;}const g=getGrupo(r)||'__SEM__';if(g==='__SEM__'){sems.push(r);return;}if(!grupos[g])grupos[g]=[];grupos[g].push(r);});
     let first=true;
-    Object.keys(grupos).sort().forEach(g=>{addGH(tbody,g,'gh-normal',grupos[g],!first,true);grupos[g].forEach(r=>tbody.appendChild(criarLinha(r)));first=false;});
+    Object.keys(grupos).sort().forEach(g=>{addGH(tbody,g,'gh-normal',grupos[g],!first,true);let prevPorSub={};grupos[g].forEach(r=>{const sub=getSub(r)||'__';tbody.appendChild(criarLinha(r,prevPorSub[sub]));prevPorSub[sub]=r;});first=false;});
     if(sems.length){addGH(tbody,'__SEM__','gh-sem',sems,!first,false);sems.forEach(r=>tbody.appendChild(criarLinha(r)));first=false;}
     if(fins.length){addGH(tbody,'__FIN__','gh-finalizado',fins,!first,false);fins.forEach(r=>tbody.appendChild(criarLinha(r)));}
   }else{dados.forEach(r=>tbody.appendChild(criarLinha(r)));}
@@ -599,7 +688,7 @@ function addGH(tbody,g,cls,rows,br,showFin){
       cargaHTML='<div style="display:inline-flex;align-items:center;gap:8px;margin-left:12px;vertical-align:middle"><div style="height:8px;width:120px;border-radius:4px;background:rgba(0,0,0,.12);overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+cor+';border-radius:4px"></div></div><span style="font-size:11px;font-weight:400;opacity:0.7">'+maqTxt+'~'+bl.toFixed(1).replace('.',',')+' dias/máq</span></div>';
     }
   }
-  tr.innerHTML='<td colspan="17"><i class="ti '+icon+'" style="font-size:13px;vertical-align:-2px;margin-right:6px"></i>'+label+' <span style="font-weight:400;opacity:0.7">— '+count+' pedido(s)</span>'+subtotal+cargaHTML+fb+'</td>';
+  tr.innerHTML='<td colspan="18"><i class="ti '+icon+'" style="font-size:13px;vertical-align:-2px;margin-right:6px"></i>'+label+' <span style="font-weight:400;opacity:0.7">— '+count+' pedido(s)</span>'+subtotal+cargaHTML+fb+'</td>';
   tbody.appendChild(tr);
 }
 
@@ -640,7 +729,7 @@ function onDrop(e){
 }
 function onDragEnd(){document.querySelectorAll('tbody tr').forEach(r=>r.classList.remove('drag-over'));}
 
-function criarLinha(r){
+function criarLinha(r,anterior){
   const grupo=getGrupo(r),sub=getSub(r),obs=getObs(r),fin=isFinalizado(r),semMaq=!grupo&&!fin,urg=isUrgente(r)&&!fin;
   const tr=document.createElement('tr');
   tr.dataset.id=r.id;
@@ -653,6 +742,11 @@ function criarLinha(r){
   if(semMaq)tr.className='sem-maquina';
   if(urg)tr.classList.add('urgente');
   if(!fin&&diasParaEntrega(r.entrega)<0)tr.classList.add('atrasado-row');
+  // Troca de setup: item anterior na mesma máquina tinha MP/largura diferente
+  let trocaSetup=false;
+  if(anterior&&!fin&&!semMaq){
+    if(chaveSetup(anterior)!==chaveSetup(r)){trocaSetup=true;tr.classList.add('troca-setup');}
+  }
   const opG=GRUPOS.map(g=>'<option value="'+g.nome+'" '+(grupo===g.nome?'selected':'')+'>'+dispNome(g.nome)+'</option>').join('');
   const isEd=overrides[r.id]&&overrides[r.id].grupo!==undefined;
   const subs=grupoTemSub(grupo);
@@ -673,7 +767,13 @@ function criarLinha(r){
   const mpShort=limparMP(r.mp);
   const formato=extrairFormato(r.descricao);
   const formatoCell=formato?'<span style="font-size:11px;background:#F0F0E8;color:#555;padding:2px 6px;border-radius:4px;white-space:nowrap;font-family:monospace">'+formato+'</span>':'<span style="color:#ccc;font-size:11px">—</span>';
-  tr.innerHTML='<td style="text-align:center"><input type="checkbox" class="chk-linha" data-id="'+r.id+'" onclick="toggleSel(\''+r.id+'\',event)" '+(selLote.has(r.id)?'checked':'')+'></td><td class="col-pedido">'+r.pedido+'</td><td class="col-item">'+r.item+'</td><td class="col-cliente" title="'+r.cliente+'">'+r.cliente+'</td><td class="col-produto" title="'+r.produto+'">'+r.produto+'</td><td class="col-desc">'+r.descricao+'</td><td class="col-un" style="text-align:center">'+formatoCell+'</td><td class="col-qtd">'+formatarQtd(r.qtd)+'</td><td class="col-un">'+r.un+'</td><td class="col-qtd" style="text-align:right">'+formatarQtd(r.metros)+'</td><td class="col-un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="col-desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="col-un" style="text-align:center">'+tempoCell+'</td><td class="col-entrega">'+r.entrega+ub+'</td><td class="col-status" title="'+r.status+'">'+r.status+'</td><td class="col-maquina">'+mc+'</td><td class="col-obs">'+obsCell+'</td>';
+  const dDias=diasParaEntrega(r.entrega);
+  let diasCell;
+  if(fin)diasCell='<span style="color:#ccc">—</span>';
+  else if(dDias<0)diasCell='<span style="color:#DC2626;font-weight:700">'+Math.abs(dDias)+'d atraso</span>';
+  else if(dDias===0)diasCell='<span style="color:#EA580C;font-weight:700">hoje</span>';
+  else diasCell='<span style="color:#666">'+dDias+'d</span>';
+  tr.innerHTML='<td style="text-align:center"><input type="checkbox" class="chk-linha" data-id="'+r.id+'" onclick="toggleSel(\''+r.id+'\',event)" '+(selLote.has(r.id)?'checked':'')+'></td><td class="col-pedido">'+r.pedido+'</td><td class="col-item">'+r.item+'</td><td class="col-cliente" title="'+r.cliente+'">'+r.cliente+'</td><td class="col-produto" title="'+r.produto+'">'+r.produto+'</td><td class="col-desc">'+r.descricao+'</td><td class="col-un" style="text-align:center">'+formatoCell+'</td><td class="col-qtd">'+formatarQtd(r.qtd)+'</td><td class="col-un">'+r.un+'</td><td class="col-qtd" style="text-align:right">'+formatarQtd(r.metros)+'</td><td class="col-un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="col-desc" title="'+(r.mp||'')+'">'+mpShort+(trocaSetup?'<span class="setup-flag" title="Troca de material em relação ao item anterior">↻ setup</span>':'')+'</td><td class="col-un" style="text-align:center">'+tempoCell+'</td><td class="col-entrega">'+r.entrega+ub+'</td><td class="col-un" style="text-align:center">'+diasCell+'</td><td class="col-status" title="'+r.status+'">'+r.status+'</td><td class="col-maquina">'+mc+'</td><td class="col-obs">'+obsCell+'</td>';
   return tr;
 }
 
