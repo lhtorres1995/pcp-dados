@@ -153,6 +153,7 @@ td.obs-col{width:180px}
     <button class="btn-hdr" id="btn-tema" onclick="alternarTema()"><i class="ti ti-sun" style="font-size:13px"></i> Claro</button>
     <button class="btn-hdr" onclick="trocarToken()"><i class="ti ti-key" style="font-size:13px"></i> Token</button>
     <button class="btn-hdr" onclick="imprimir()"><i class="ti ti-printer" style="font-size:13px"></i> Imprimir</button>
+    <button class="btn-hdr" onclick="vizVerFila()"><i class="ti ti-list-numbers" style="font-size:13px"></i> Ver fila</button>
     <button class="btn-hdr" onclick="ordenarPorData()"><i class="ti ti-calendar-sort" style="font-size:13px"></i> Ordenar por data</button>
     <button class="btn-hdr" onclick="carregar(true)"><i class="ti ti-refresh" style="font-size:13px"></i> Atualizar</button>
     <div class="clock" id="clock"></div>
@@ -358,6 +359,24 @@ function ordCompare(a,b){
   return(da?da.getTime():9e12)-(db?db.getTime():9e12);
 }
 function somarML(rows){return rows.reduce(function(acc,r){var v=parseFloat((r.metros||'').replace(',','.'));return acc+(isNaN(v)?0:v);},0);}
+// Ordenação por coluna (apenas visual, não altera a fila salva)
+var vizSortCol='',vizSortDir=1;
+function numBR(v){return parseFloat((v||'').toString().replace(/\./g,'').replace(',','.'))||0;}
+function colCompare(a,b){
+  if(!vizSortCol)return ordCompare(a,b);
+  var va,vb;
+  if(vizSortCol==='entrega'){var da=parseDateBR(a.entrega),db=parseDateBR(b.entrega);va=da?da.getTime():9e12;vb=db?db.getTime():9e12;}
+  else if(vizSortCol==='qtd'){va=numBR(a.qtd);vb=numBR(b.qtd);}
+  else if(vizSortCol==='metros'){va=numBR(a.metros);vb=numBR(b.metros);}
+  else if(vizSortCol==='dias'){va=diasPara(a.entrega);vb=diasPara(b.entrega);}
+  else{va=(a[vizSortCol]||'').toString().toLowerCase();vb=(b[vizSortCol]||'').toString().toLowerCase();}
+  return va<vb?-vizSortDir:va>vb?vizSortDir:0;
+}
+function vizSort(col){
+  if(vizSortCol===col)vizSortDir*=-1;else{vizSortCol=col;vizSortDir=1;}
+  renderGrupos();
+}
+function vizVerFila(){vizSortCol='';vizSortDir=1;renderGrupos();}
 function somarTempos(rows){var total=rows.reduce(function(acc,r){var h=tempoHoras(r);return acc+(h||0);},0);return total>0?formatarTempo(total):null;}
 // ── Capacidade produtiva ──
 // Seg-Qui: 8h-18h = 9h úteis (1h almoço). Sex: 8h-17h = 8h úteis. Total 44h/semana.
@@ -477,6 +496,10 @@ function restaurarMinhaMaquina(){
     }
   }catch(e){}
 }
+function vsi(col){
+  if(vizSortCol!==col)return ' <span style="opacity:.3">↕</span>';
+  return ' <span style="color:#60A5FA">'+(vizSortDir===1?'↑':'↓')+'</span>';
+}
 function renderGrupos(){
   var busca=nl(document.getElementById('busca').value);
   var fMaq=document.getElementById('filtro-maquina').value;
@@ -508,7 +531,7 @@ function renderGrupos(){
   conteudo.innerHTML='';
   var container=document.createElement('div');container.className='grupos';
   chaves.forEach(function(g){
-    var itens=grupos[g].sort(ordCompare);
+    var itens=grupos[g].sort(colCompare);
     var temUrg=itens.some(function(r){return diasPara(r.entrega)<=2;});
     var gInfo=GRUPOS.find(function(x){return x.nome===g;});
     var subs=gInfo&&gInfo.subs.length?gInfo.subs:null;
@@ -523,9 +546,12 @@ function renderGrupos(){
     // Cada submáquina tem sua própria fila independente. Itens sem submáquina
     // formam um pool ainda não distribuído.
     var riscoMap={};
-    function calcFilaRisco(listaOrdenada){
+    function calcFilaRisco(lista){
+      // O risco/previsão SEMPRE usa a ordem real da fila de produção,
+      // mesmo que a visualização esteja ordenada por outra coluna.
+      var filaReal=lista.slice().sort(ordCompare);
       var acumH=0,total=0;
-      listaOrdenada.forEach(function(r){
+      filaReal.forEach(function(r){
         var h=tempoHoras(r)||0;acumH+=h;total+=h;
         var prev=horasParaData(acumH);
         var ent=parseDateBR(r.entrega);
@@ -559,12 +585,12 @@ function renderGrupos(){
       cargaHTML=hGrupo>0?'<div class="carga-wrap"><span style="font-size:11px;opacity:.7;margin-right:4px">'+nMaq+' máquinas</span><div class="carga-bar"><div class="carga-fill" style="width:'+pctG+'%;background:'+corG+'"></div></div><span class="carga-label">'+formatarTempo(hGrupo)+' total &middot; ~'+blGrupo.toFixed(1).replace('.',',')+' dias/máquina</span></div>':'';
     }
     var card=document.createElement('div');card.className='grupo-card'+(temUrg?' tem-urgente':'');
-    card.innerHTML='<div class="grupo-header"><div class="grupo-nome"><div class="grupo-icon">'+(gInfo?gInfo.icon:'??')+'</div>'+g+'</div><div class="grupo-info"><span class="grupo-count">'+itens.length+' pedidos</span><span class="grupo-total">'+totStr+'</span>'+(urgCount>0?'<span class="urg-badge-group">'+urgCount+' urgente'+(urgCount>1?'s':'')+'</span>':'')+'</div></div>'+cargaHTML+'<div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Item</th><th>Cliente</th><th>Produto</th><th>Descricao</th><th>Formato</th><th style="text-align:right">Qtd.</th><th>Un.</th><th style="text-align:right">M.L.</th><th>Larg.MP</th><th>Materia Prima</th><th>Tempo Est.</th><th>Entrega</th><th>Dias</th><th>Maquina</th><th>Observacao</th></tr></thead><tbody id="tbody-'+g.replace(/[^a-z0-9]/gi,'_')+'"></tbody></table></div>';
+    card.innerHTML='<div class="grupo-header"><div class="grupo-nome"><div class="grupo-icon">'+(gInfo?gInfo.icon:'??')+'</div>'+g+'</div><div class="grupo-info"><span class="grupo-count">'+itens.length+' pedidos</span><span class="grupo-total">'+totStr+'</span>'+(urgCount>0?'<span class="urg-badge-group">'+urgCount+' urgente'+(urgCount>1?'s':'')+'</span>':'')+'</div></div>'+cargaHTML+'<div class="table-wrap"><table><thead><tr><th onclick="vizSort(\'pedido\')" style="cursor:pointer">Pedido'+vsi('pedido')+'</th><th onclick="vizSort(\'item\')" style="cursor:pointer">Item'+vsi('item')+'</th><th onclick="vizSort(\'cliente\')" style="cursor:pointer">Cliente'+vsi('cliente')+'</th><th>Produto</th><th onclick="vizSort(\'descricao\')" style="cursor:pointer">Descricao'+vsi('descricao')+'</th><th>Formato</th><th onclick="vizSort(\'qtd\')" style="cursor:pointer;text-align:right">Qtd.'+vsi('qtd')+'</th><th>Un.</th><th onclick="vizSort(\'metros\')" style="cursor:pointer;text-align:right">M.L.'+vsi('metros')+'</th><th>Larg.MP</th><th>Materia Prima</th><th>Tempo Est.</th><th onclick="vizSort(\'entrega\')" style="cursor:pointer">Entrega'+vsi('entrega')+'</th><th onclick="vizSort(\'dias\')" style="cursor:pointer">Dias'+vsi('dias')+'</th><th>Maquina</th><th>Observacao</th></tr></thead><tbody id="tbody-'+g.replace(/[^a-z0-9]/gi,'_')+'"></tbody></table></div>';
     container.appendChild(card);
     var tbody=card.querySelector('tbody');
     if(subs){
       subs.forEach(function(sub){
-        var si=itens.filter(function(r){return r.sub===sub;}).sort(ordCompare);
+        var si=itens.filter(function(r){return r.sub===sub;}).sort(colCompare);
         if(!si.length)return;
         var hSub=calcFilaRisco(si); // calcula risco por máquina e retorna horas totais
         var st=document.createElement('tr');
@@ -577,7 +603,7 @@ function renderGrupos(){
         tbody.appendChild(st);
         si.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs,riscoMap[r.id]));});
       });
-      var sem=itens.filter(function(r){return !r.sub;}).sort(ordCompare);
+      var sem=itens.filter(function(r){return !r.sub;}).sort(colCompare);
       if(sem.length){
         // Pool não distribuído: sem cálculo de risco por máquina (ainda não alocado)
         sem.forEach(function(r){riscoMap[r.id]={risco:false,prevTxt:''};});
@@ -632,12 +658,14 @@ function criarLinha(r,g,subs,riscoData){
   var temPend=!!r.obs;
   tr.className=stCls+(temPend?' tem-pendencia':'');
   tr.dataset.id=r.id;
-  tr.setAttribute('draggable','true');
-  tr.addEventListener('dragstart',onDragStart);
-  tr.addEventListener('dragover',onDragOver);
-  tr.addEventListener('dragleave',onDragLeave);
-  tr.addEventListener('drop',onDrop);
-  tr.addEventListener('dragend',onDragEnd);
+  if(!vizSortCol){
+    tr.setAttribute('draggable','true');
+    tr.addEventListener('dragstart',onDragStart);
+    tr.addEventListener('dragover',onDragOver);
+    tr.addEventListener('dragleave',onDragLeave);
+    tr.addEventListener('drop',onDrop);
+    tr.addEventListener('dragend',onDragEnd);
+  }
   var dataTag='';
   if(dias<0)dataTag='<span class="tag tag-atraso">ATRASADO</span>';
   else if(dias===0)dataTag='<span class="tag tag-hoje">HOJE</span>';
