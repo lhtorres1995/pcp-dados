@@ -84,6 +84,8 @@ td.col-obs{width:190px}
 .empty-state i{font-size:48px;margin-bottom:1rem;display:block;color:#bbb}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 tbody tr.drag-over{outline:2px dashed #185FA5;background:#E6F1FB}
+tbody tr.atrasado-row{background:rgba(220,38,38,.07)}
+tbody tr.atrasado-row td:first-child{border-left:4px solid #DC2626}
 tbody tr[draggable]{cursor:grab}
 tbody tr[draggable]:active{cursor:grabbing;opacity:.7}
 </style>
@@ -217,6 +219,10 @@ const OBS_OPCOES=['','Aguardando Faca','Aguardando Clichê','Aguardando Aprovaç
 function dispNome(g){const f=GRUPOS.find(x=>x.nome===g);return(f&&f.display)?f.display:(g||'');}
 function normGrupo(s){return(s||'').toString().toUpperCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');}
 // ── Tempo estimado ──
+// ── Capacidade produtiva: Seg-Qui 9h, Sex 8h ──
+function horasUteisDia(d){const dow=d.getDay();if(dow===0||dow===6)return 0;if(dow===5)return 8;return 9;}
+function horasParaData(horas){if(horas<=0)return new Date();let d=new Date();d.setHours(8,0,0,0);let rest=horas,guard=0;while(rest>0&&guard<400){const cap=horasUteisDia(d);if(cap>0){if(rest<=cap)return d;rest-=cap;}d.setDate(d.getDate()+1);d.setHours(8,0,0,0);guard++;}return d;}
+function backlogDias(horas){return horas<=0?0:horas/8.8;}
 const VELOCIDADES={
   'FLEXO 1':2400,'FLEXO 2':2400,'FLEXO 3':2400,
   'ETIRAMA':3000,'NACBRAS':2400,'KROMIA':2400,
@@ -517,16 +523,24 @@ function addGH(tbody,g,cls,rows,br,showFin){
   const label=g==='__SEM__'?'Sem máquina definida':g==='__FIN__'?'Finalizados':dispNome(g);
   const icon=g==='__FIN__'?'ti-circle-check':g==='__SEM__'?'ti-alert-triangle':'ti-tools';
   const fb=showFin?'<button class="btn-fin-grupo" onclick="finalizarGrupo(\''+g+'\')"><i class="ti ti-circle-check" style="font-size:11px;vertical-align:-1px"></i> Finalizar todos</button>':'';
-  let subtotal='';
-  if(Array.isArray(rows)&&rows.length){
+  let subtotal='';let cargaHTML='';
+  if(Array.isArray(rows)&&rows.length&&g!=='__FIN__'&&g!=='__SEM__'){
     const ml=somarML(rows);
     const tempo=somarTempos(rows);
     const parts=[];
     if(ml>0)parts.push(formatarQtd(ml)+' m/l');
     if(tempo)parts.push(tempo+' estimado');
     if(parts.length)subtotal='<span style="font-weight:400;opacity:0.7;margin-left:8px">· '+parts.join(' · ')+'</span>';
+    // Barra de ocupação
+    const horasFila=rows.reduce((a,r)=>a+(tempoHoras(r)||0),0);
+    if(horasFila>0){
+      const bl=backlogDias(horasFila);
+      const cor=bl<=1?'#16A34A':bl<=2.5?'#F59E0B':'#DC2626';
+      const pct=Math.min(100,(bl/3)*100);
+      cargaHTML='<div style="display:inline-flex;align-items:center;gap:8px;margin-left:12px;vertical-align:middle"><div style="height:8px;width:120px;border-radius:4px;background:rgba(0,0,0,.12);overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+cor+';border-radius:4px"></div></div><span style="font-size:11px;font-weight:400;opacity:0.7">'+bl.toFixed(1).replace('.',',')+' dias backlog</span></div>';
+    }
   }
-  tr.innerHTML='<td colspan="16"><i class="ti '+icon+'" style="font-size:13px;vertical-align:-2px;margin-right:6px"></i>'+label+' <span style="font-weight:400;opacity:0.7">— '+count+' pedido(s)</span>'+subtotal+fb+'</td>';
+  tr.innerHTML='<td colspan="16"><i class="ti '+icon+'" style="font-size:13px;vertical-align:-2px;margin-right:6px"></i>'+label+' <span style="font-weight:400;opacity:0.7">— '+count+' pedido(s)</span>'+subtotal+cargaHTML+fb+'</td>';
   tbody.appendChild(tr);
 }
 
@@ -579,6 +593,7 @@ function criarLinha(r){
   tr.addEventListener('dragend',onDragEnd);
   if(semMaq)tr.className='sem-maquina';
   if(urg)tr.classList.add('urgente');
+  if(!fin&&diasParaEntrega(r.entrega)<0)tr.classList.add('atrasado-row');
   const opG=GRUPOS.map(g=>'<option value="'+g.nome+'" '+(grupo===g.nome?'selected':'')+'>'+dispNome(g.nome)+'</option>').join('');
   const isEd=overrides[r.id]&&overrides[r.id].grupo!==undefined;
   const subs=grupoTemSub(grupo);
@@ -588,7 +603,12 @@ function criarLinha(r){
   mc+='</div>';
   const opObs=OBS_OPCOES.map(o=>'<option value="'+o+'" '+(obs===o?'selected':'')+'>'+( o||'— sem observação —')+'</option>').join('');
   const obsCell='<select class="sel obs-sel '+(obs?'obs-ativo':'')+'" onchange="onSelectObs(\''+r.id+'\',this.value)">'+opObs+'</select>';
-  const ub=urg?'<span class="urgente-badge">'+(diasParaEntrega(r.entrega)===0?'hoje':diasParaEntrega(r.entrega)===1?'amanhã':diasParaEntrega(r.entrega)+'d')+'</span>':'';
+  const dEnt=diasParaEntrega(r.entrega);
+  let ub='';
+  if(!fin){
+    if(dEnt<0)ub='<span class="urgente-badge" style="background:#DC2626;color:#fff">atrasado</span>';
+    else if(urg)ub='<span class="urgente-badge">'+(dEnt===0?'hoje':dEnt===1?'amanhã':dEnt+'d')+'</span>';
+  }
   const tempo=calcTempo(r);
   const tempoCell=tempo?'<span style="font-size:11px;background:#E6F1FB;color:#185FA5;padding:2px 7px;border-radius:20px;white-space:nowrap">'+tempo+'</span>':'<span style="color:#ccc;font-size:11px">—</span>';
   const mpShort=limparMP(r.mp);
