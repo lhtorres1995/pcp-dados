@@ -98,6 +98,10 @@ tbody tr.st-atrasado{animation:pulseAtraso 2.2s ease-in-out infinite}
 .carga-meio .carga-fill{background:#F59E0B}
 .carga-alta .carga-fill{background:#DC2626}
 .carga-label{font-size:11px;color:var(--text3)}
+/* Pendência: item travado aguardando faca/cliche/MP/aprovacao */
+tbody tr.tem-pendencia{background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(245,158,11,.06) 8px,rgba(245,158,11,.06) 16px)}
+.tag-pend{background:#7C3C00;color:#FCD34D;font-weight:600}
+.lock-ico{color:#F59E0B;margin-right:3px}
 /* Modo TV: painel de parede, leitura à distância */
 .modo-tv .filter-bar,.modo-tv .btn-hdr,.modo-tv .maquina-col,.modo-tv .obs-col{display:none!important}
 .modo-tv .produto,.modo-tv .desc:nth-of-type(n),.modo-tv td:nth-child(11),.modo-tv td:nth-child(9),.modo-tv td:nth-child(10),.modo-tv td:nth-child(12),.modo-tv th:nth-child(11),.modo-tv th:nth-child(9),.modo-tv th:nth-child(10),.modo-tv th:nth-child(12){display:none}
@@ -475,27 +479,72 @@ function renderGrupos(){
     if(tpTotal)totStr+=' - '+tpTotal+' estimado';
     var urgCount=itens.filter(function(r){return diasPara(r.entrega)<=2;}).length;
     // ── Carga/ocupação da máquina ──
-    var horasFila=itens.reduce(function(a,r){return a+(tempoHoras(r)||0);},0);
-    var bl=backlogDias(horasFila);
-    var cargaCls=bl<=1?'carga-ok':bl<=2.5?'carga-meio':'carga-alta';
-    var cargaPct=Math.min(100,(bl/3)*100);
-    var cargaHTML=horasFila>0?'<div class="carga-wrap"><div class="carga-bar '+cargaCls+'"><div class="carga-fill" style="width:'+cargaPct+'%"></div></div><span class="carga-label">'+formatarTempo(horasFila)+' na fila &middot; '+bl.toFixed(1).replace('.',',')+' dias de backlog</span></div>':'';
-    // ── Risco por item: previsão de conclusão acumulada vs entrega ──
-    var riscoMap={};var acumH=0;
-    itens.forEach(function(r){
-      acumH+=(tempoHoras(r)||0);
-      var prev=horasParaData(acumH);
-      var ent=parseDateBR(r.entrega);
-      var risco=ent&&prev.getTime()>ent.getTime();
-      riscoMap[r.id]={risco:risco,prevTxt:prev.toLocaleDateString('pt-BR')};
-    });
+    // ── Carga e risco calculados POR MÁQUINA FÍSICA (submáquina) ──
+    // Cada submáquina tem sua própria fila independente. Itens sem submáquina
+    // formam um pool ainda não distribuído.
+    var riscoMap={};
+    function calcFilaRisco(listaOrdenada){
+      var acumH=0,total=0;
+      listaOrdenada.forEach(function(r){
+        var h=tempoHoras(r)||0;acumH+=h;total+=h;
+        var prev=horasParaData(acumH);
+        var ent=parseDateBR(r.entrega);
+        riscoMap[r.id]={risco:ent&&prev.getTime()>ent.getTime(),prevTxt:prev.toLocaleDateString('pt-BR')};
+      });
+      return total;
+    }
+    function barraCarga(horas){
+      if(horas<=0)return '';
+      var bl=backlogDias(horas);
+      var cls=bl<=1?'carga-ok':bl<=2.5?'carga-meio':'carga-alta';
+      var pct=Math.min(100,(bl/3)*100);
+      return '<div class="carga-wrap"><div class="carga-bar '+cls+'"><div class="carga-fill" style="width:'+pct+'%"></div></div><span class="carga-label">'+formatarTempo(horas)+' na fila &middot; '+bl.toFixed(1).replace('.',',')+' dias</span></div>';
+    }
+    // Carga total do grupo (para o header) = soma das submáquinas
+    var cargaHTML='';
+    if(!subs){
+      // grupo de máquina única: calcula direto
+      var hTot=calcFilaRisco(itens);
+      cargaHTML=barraCarga(hTot);
+    }
+    // (quando há subs, a carga é exibida em cada sub-header, calculada abaixo)
+    // Para o header do grupo: mostra capacidade agregada (nº de máquinas do grupo)
+    if(subs){
+      var nMaq=subs.length;
+      var hGrupo=itens.reduce(function(a,r){return a+(tempoHoras(r)||0);},0);
+      // capacidade do grupo = nMaq máquinas; backlog médio = horas / (nMaq * 8.8)
+      var blGrupo=hGrupo>0?hGrupo/(nMaq*8.8):0;
+      var corG=blGrupo<=1?'#16A34A':blGrupo<=2.5?'#F59E0B':'#DC2626';
+      var pctG=Math.min(100,(blGrupo/3)*100);
+      cargaHTML=hGrupo>0?'<div class="carga-wrap"><span style="font-size:11px;opacity:.7;margin-right:4px">'+nMaq+' máquinas</span><div class="carga-bar"><div class="carga-fill" style="width:'+pctG+'%;background:'+corG+'"></div></div><span class="carga-label">'+formatarTempo(hGrupo)+' total &middot; ~'+blGrupo.toFixed(1).replace('.',',')+' dias/máquina</span></div>':'';
+    }
     var card=document.createElement('div');card.className='grupo-card'+(temUrg?' tem-urgente':'');
-    card.innerHTML='<div class="grupo-header"><div class="grupo-nome"><div class="grupo-icon">'+(gInfo?gInfo.icon:'??')+'</div>'+g+'</div><div class="grupo-info"><span class="grupo-count">'+itens.length+' pedidos</span><span class="grupo-total">'+totStr+'</span>'+(urgCount>0?'<span class="urg-badge-group">'+urgCount+' urgente'+(urgCount>1?'s':'')+'</span>':'')+'</div></div>'+cargaHTML+'<div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Item</th><th>Cliente</th><th>Produto</th><th>Descricao</th><th>Formato</th><th style="text-align:right">Qtd.</th><th>Un.</th><th style="text-align:right">M.L.</th><th>Larg.MP</th><th>Materia Prima</th><th>Tempo Est.</th><th>Entrega</th><th>Maquina</th><th>Observacao</th></tr></thead><tbody id="tbody-'+g.replace(/[^a-z0-9]/gi,'_')+'"></tbody></table></div>';
+    card.innerHTML='<div class="grupo-header"><div class="grupo-nome"><div class="grupo-icon">'+(gInfo?gInfo.icon:'??')+'</div>'+g+'</div><div class="grupo-info"><span class="grupo-count">'+itens.length+' pedidos</span><span class="grupo-total">'+totStr+'</span>'+(urgCount>0?'<span class="urg-badge-group">'+urgCount+' urgente'+(urgCount>1?'s':'')+'</span>':'')+'</div></div>'+cargaHTML+'<div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Item</th><th>Cliente</th><th>Produto</th><th>Descricao</th><th>Formato</th><th style="text-align:right">Qtd.</th><th>Un.</th><th style="text-align:right">M.L.</th><th>Larg.MP</th><th>Materia Prima</th><th>Tempo Est.</th><th>Entrega</th><th>Dias</th><th>Maquina</th><th>Observacao</th></tr></thead><tbody id="tbody-'+g.replace(/[^a-z0-9]/gi,'_')+'"></tbody></table></div>';
     container.appendChild(card);
     var tbody=card.querySelector('tbody');
     if(subs){
-      subs.forEach(function(sub){var si=itens.filter(function(r){return r.sub===sub;});if(!si.length)return;var st=document.createElement('tr');var mlS=somarML(si),tpS=somarTempos(si);var ext=[];if(mlS>0)ext.push(fmtQtd(mlS)+' m/l');if(tpS)ext.push(tpS);st.className='sub-header';st.innerHTML='<td colspan="15">> '+sub+' - '+si.length+' pedido(s)'+(ext.length?' &middot; '+ext.join(' &middot; '):'')+'</td>';tbody.appendChild(st);si.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs,riscoMap[r.id]));});});
-      var sem=itens.filter(function(r){return !r.sub;});if(sem.length){var st2=document.createElement('tr');var mlSm=somarML(sem),tpSm=somarTempos(sem);var extSm=[];if(mlSm>0)extSm.push(fmtQtd(mlSm)+' m/l');if(tpSm)extSm.push(tpSm);st2.className='sub-header';st2.innerHTML='<td colspan="15" style="color:var(--text3)"> Sem submaquina - '+sem.length+' pedido(s)'+(extSm.length?' &middot; '+extSm.join(' &middot; '):'')+'</td>';tbody.appendChild(st2);sem.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs,riscoMap[r.id]));});}
+      subs.forEach(function(sub){
+        var si=itens.filter(function(r){return r.sub===sub;}).sort(ordCompare);
+        if(!si.length)return;
+        var hSub=calcFilaRisco(si); // calcula risco por máquina e retorna horas totais
+        var st=document.createElement('tr');
+        var mlS=somarML(si),tpS=somarTempos(si);var ext=[];if(mlS>0)ext.push(fmtQtd(mlS)+' m/l');if(tpS)ext.push(tpS);
+        var blS=backlogDias(hSub),corS=blS<=1?'#16A34A':blS<=2.5?'#F59E0B':'#DC2626';
+        var pctS=Math.min(100,(blS/3)*100);
+        var cargaInline=hSub>0?'<span style="display:inline-flex;align-items:center;gap:6px;margin-left:10px"><span style="height:7px;width:90px;border-radius:4px;background:rgba(128,128,128,.25);overflow:hidden;display:inline-block"><span style="display:block;height:100%;width:'+pctS+'%;background:'+corS+'"></span></span><span style="font-size:10px;opacity:.75">'+blS.toFixed(1).replace('.',',')+' dias</span></span>':'';
+        st.className='sub-header';
+        st.innerHTML='<td colspan="16">> '+sub+' - '+si.length+' pedido(s)'+(ext.length?' &middot; '+ext.join(' &middot; '):'')+cargaInline+'</td>';
+        tbody.appendChild(st);
+        si.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs,riscoMap[r.id]));});
+      });
+      var sem=itens.filter(function(r){return !r.sub;}).sort(ordCompare);
+      if(sem.length){
+        // Pool não distribuído: sem cálculo de risco por máquina (ainda não alocado)
+        sem.forEach(function(r){riscoMap[r.id]={risco:false,prevTxt:''};});
+        var st2=document.createElement('tr');var mlSm=somarML(sem),tpSm=somarTempos(sem);var extSm=[];if(mlSm>0)extSm.push(fmtQtd(mlSm)+' m/l');if(tpSm)extSm.push(tpSm);
+        st2.className='sub-header';st2.innerHTML='<td colspan="16" style="color:var(--text3)"> Sem maquina definida - '+sem.length+' pedido(s)'+(extSm.length?' &middot; '+extSm.join(' &middot; '):'')+' &middot; <span style="color:#F59E0B">aguardando distribuicao</span></td>';tbody.appendChild(st2);
+        sem.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs,riscoMap[r.id]));});
+      }
     }else{itens.forEach(function(r){tbody.appendChild(criarLinha(r,g,null,riscoMap[r.id]));});}
   });
   conteudo.appendChild(container);
@@ -540,7 +589,8 @@ function criarLinha(r,g,subs,riscoData){
   var dias=diasPara(r.entrega);
   var tr=document.createElement('tr');
   var stCls=dias<0?'st-atrasado':dias===0?'st-hoje':dias<=2?'st-amanha':'st-ok';
-  tr.className=stCls;
+  var temPend=!!r.obs;
+  tr.className=stCls+(temPend?' tem-pendencia':'');
   tr.dataset.id=r.id;
   tr.setAttribute('draggable','true');
   tr.addEventListener('dragstart',onDragStart);
@@ -568,7 +618,12 @@ function criarLinha(r,g,subs,riscoData){
   var mpShort=limparMP(r.mp);
   var formato=extrairFormato(r.descricao);
   var formatoCellV=formato?'<span style="font-size:10px;background:#F0F0E8;color:#555;padding:1px 5px;border-radius:4px;white-space:nowrap;font-family:monospace;font-weight:600">'+formato+'</span>':'<span style="color:var(--text3);font-size:10px">—</span>';
-  tr.innerHTML='<td class="pedido">'+(r.pedido||'')+'</td><td class="item">'+(r.item||'')+'</td><td class="cliente">'+(r.cliente||'')+'</td><td class="produto">'+(r.produto||'')+'</td><td class="desc">'+(r.descricao||'')+'</td><td class="un" style="text-align:center">'+formatoCellV+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+(r.un||'')+'</td><td class="qtd" style="text-align:right">'+fmtQtd(r.metros||'')+'</td><td class="un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="un" style="text-align:center">'+tempoCell+'</td><td class="entrega">'+(r.entrega||'')+dataTag+'</td><td class="maquina-col">'+mc+'</td><td class="obs-col">'+obsCell+'</td>';
+  var diasCell;
+  if(dias<0)diasCell='<span style="color:#DC2626;font-weight:700">'+Math.abs(dias)+'d atraso</span>';
+  else if(dias===0)diasCell='<span style="color:#EA580C;font-weight:700">hoje</span>';
+  else diasCell='<span style="color:var(--text2)">'+dias+'d</span>';
+  var lockIco=temPend?'<i class="ti ti-lock lock-ico" title="'+(r.obs||'')+'"></i>':'';
+  tr.innerHTML='<td class="pedido">'+lockIco+(r.pedido||'')+'</td><td class="item">'+(r.item||'')+'</td><td class="cliente">'+(r.cliente||'')+'</td><td class="produto">'+(r.produto||'')+'</td><td class="desc">'+(r.descricao||'')+'</td><td class="un" style="text-align:center">'+formatoCellV+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+(r.un||'')+'</td><td class="qtd" style="text-align:right">'+fmtQtd(r.metros||'')+'</td><td class="un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="un" style="text-align:center">'+tempoCell+'</td><td class="entrega">'+(r.entrega||'')+dataTag+'</td><td class="un" style="text-align:center">'+diasCell+'</td><td class="maquina-col">'+mc+'</td><td class="obs-col">'+obsCell+'</td>';
   return tr;
 }
 
