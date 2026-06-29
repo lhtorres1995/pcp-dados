@@ -157,9 +157,16 @@ tbody tr[draggable]:active{cursor:grabbing;opacity:.7}
         <option value="lista">Lista completa</option>
       </select>
     </div>
+    <div id="lote-bar" style="display:none;align-items:center;gap:12px;background:#185FA5;color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:10px">
+      <span id="lote-count" style="font-weight:600">0 selecionados</span>
+      <select id="lote-maquina" style="padding:6px 10px;border-radius:8px;border:none"><option value="">— escolher máquina —</option></select>
+      <button class="btn" onclick="aplicarLoteMaquina()" style="background:#fff;color:#185FA5"><i class="ti ti-check"></i> Atribuir</button>
+      <button class="btn" onclick="limparSelecao()" style="background:transparent;color:#fff;border:1px solid #fff"><i class="ti ti-x"></i> Limpar</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
+          <th style="width:32px;text-align:center"><input type="checkbox" id="chk-todos" onclick="toggleTodos(this.checked)" title="Selecionar todos"></th>
           <th onclick="sortBy('pedido')">Pedido <span class="sort-icon" id="si-pedido">↕</span></th>
           <th onclick="sortBy('item')">Item <span class="sort-icon" id="si-item">↕</span></th>
           <th onclick="sortBy('cliente')">Cliente <span class="sort-icon" id="si-cliente">↕</span></th>
@@ -482,6 +489,55 @@ function ordenarPorData(){
   salvarLocal();
   renderTabela();
 }
+var selLote=new Set();
+function toggleSel(id,ev){
+  if(ev)ev.stopPropagation();
+  if(selLote.has(id))selLote.delete(id);else selLote.add(id);
+  atualizarLoteBar();
+}
+function toggleTodos(marcar){
+  document.querySelectorAll('.chk-linha').forEach(function(cb){
+    var id=cb.dataset.id;
+    if(marcar)selLote.add(id);else selLote.delete(id);
+    cb.checked=marcar;
+  });
+  atualizarLoteBar();
+}
+function limparSelecao(){
+  selLote.clear();
+  document.querySelectorAll('.chk-linha').forEach(function(cb){cb.checked=false;});
+  var ct=document.getElementById('chk-todos');if(ct)ct.checked=false;
+  atualizarLoteBar();
+}
+function atualizarLoteBar(){
+  var bar=document.getElementById('lote-bar');
+  var cnt=document.getElementById('lote-count');
+  if(!bar)return;
+  if(selLote.size>0){
+    bar.style.display='flex';
+    cnt.textContent=selLote.size+' selecionado'+(selLote.size>1?'s':'');
+    // popular select de máquinas (uma vez)
+    var sel=document.getElementById('lote-maquina');
+    if(sel&&sel.options.length<=1){
+      GRUPOS.forEach(function(g){var o=document.createElement('option');o.value=g.nome;o.textContent=dispNome(g.nome);sel.appendChild(o);});
+    }
+  }else{
+    bar.style.display='none';
+  }
+}
+function aplicarLoteMaquina(){
+  var maq=document.getElementById('lote-maquina').value;
+  if(!maq){alert('Escolha uma máquina.');return;}
+  selLote.forEach(function(id){
+    overrides[id]=overrides[id]||{};
+    overrides[id].grupo=maq;
+    overrides[id].sub='';
+  });
+  var n=selLote.size;
+  selLote.clear();
+  salvarLocal();atualizarStats();renderTabela();
+  atualizarLoteBar();
+}
 function renderTabela(){
   const busca=nl(document.getElementById('busca').value);
   const fMaq=document.getElementById('filtro-maquina').value;
@@ -531,16 +587,19 @@ function addGH(tbody,g,cls,rows,br,showFin){
     if(ml>0)parts.push(formatarQtd(ml)+' m/l');
     if(tempo)parts.push(tempo+' estimado');
     if(parts.length)subtotal='<span style="font-weight:400;opacity:0.7;margin-left:8px">· '+parts.join(' · ')+'</span>';
-    // Barra de ocupação
+    // Barra de ocupação — backlog médio POR MÁQUINA do grupo
     const horasFila=rows.reduce((a,r)=>a+(tempoHoras(r)||0),0);
     if(horasFila>0){
-      const bl=backlogDias(horasFila);
+      const gInfo=GRUPOS.find(x=>x.nome===g);
+      const nMaq=(gInfo&&gInfo.subs&&gInfo.subs.length)?gInfo.subs.length:1;
+      const bl=horasFila/(nMaq*8.8); // backlog médio por máquina
       const cor=bl<=1?'#16A34A':bl<=2.5?'#F59E0B':'#DC2626';
       const pct=Math.min(100,(bl/3)*100);
-      cargaHTML='<div style="display:inline-flex;align-items:center;gap:8px;margin-left:12px;vertical-align:middle"><div style="height:8px;width:120px;border-radius:4px;background:rgba(0,0,0,.12);overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+cor+';border-radius:4px"></div></div><span style="font-size:11px;font-weight:400;opacity:0.7">'+bl.toFixed(1).replace('.',',')+' dias backlog</span></div>';
+      const maqTxt=nMaq>1?nMaq+' máq · ':'';
+      cargaHTML='<div style="display:inline-flex;align-items:center;gap:8px;margin-left:12px;vertical-align:middle"><div style="height:8px;width:120px;border-radius:4px;background:rgba(0,0,0,.12);overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+cor+';border-radius:4px"></div></div><span style="font-size:11px;font-weight:400;opacity:0.7">'+maqTxt+'~'+bl.toFixed(1).replace('.',',')+' dias/máq</span></div>';
     }
   }
-  tr.innerHTML='<td colspan="16"><i class="ti '+icon+'" style="font-size:13px;vertical-align:-2px;margin-right:6px"></i>'+label+' <span style="font-weight:400;opacity:0.7">— '+count+' pedido(s)</span>'+subtotal+cargaHTML+fb+'</td>';
+  tr.innerHTML='<td colspan="17"><i class="ti '+icon+'" style="font-size:13px;vertical-align:-2px;margin-right:6px"></i>'+label+' <span style="font-weight:400;opacity:0.7">— '+count+' pedido(s)</span>'+subtotal+cargaHTML+fb+'</td>';
   tbody.appendChild(tr);
 }
 
@@ -614,7 +673,7 @@ function criarLinha(r){
   const mpShort=limparMP(r.mp);
   const formato=extrairFormato(r.descricao);
   const formatoCell=formato?'<span style="font-size:11px;background:#F0F0E8;color:#555;padding:2px 6px;border-radius:4px;white-space:nowrap;font-family:monospace">'+formato+'</span>':'<span style="color:#ccc;font-size:11px">—</span>';
-  tr.innerHTML='<td class="col-pedido">'+r.pedido+'</td><td class="col-item">'+r.item+'</td><td class="col-cliente" title="'+r.cliente+'">'+r.cliente+'</td><td class="col-produto" title="'+r.produto+'">'+r.produto+'</td><td class="col-desc">'+r.descricao+'</td><td class="col-un" style="text-align:center">'+formatoCell+'</td><td class="col-qtd">'+formatarQtd(r.qtd)+'</td><td class="col-un">'+r.un+'</td><td class="col-qtd" style="text-align:right">'+formatarQtd(r.metros)+'</td><td class="col-un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="col-desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="col-un" style="text-align:center">'+tempoCell+'</td><td class="col-entrega">'+r.entrega+ub+'</td><td class="col-status" title="'+r.status+'">'+r.status+'</td><td class="col-maquina">'+mc+'</td><td class="col-obs">'+obsCell+'</td>';
+  tr.innerHTML='<td style="text-align:center"><input type="checkbox" class="chk-linha" data-id="'+r.id+'" onclick="toggleSel(\''+r.id+'\',event)" '+(selLote.has(r.id)?'checked':'')+'></td><td class="col-pedido">'+r.pedido+'</td><td class="col-item">'+r.item+'</td><td class="col-cliente" title="'+r.cliente+'">'+r.cliente+'</td><td class="col-produto" title="'+r.produto+'">'+r.produto+'</td><td class="col-desc">'+r.descricao+'</td><td class="col-un" style="text-align:center">'+formatoCell+'</td><td class="col-qtd">'+formatarQtd(r.qtd)+'</td><td class="col-un">'+r.un+'</td><td class="col-qtd" style="text-align:right">'+formatarQtd(r.metros)+'</td><td class="col-un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="col-desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="col-un" style="text-align:center">'+tempoCell+'</td><td class="col-entrega">'+r.entrega+ub+'</td><td class="col-status" title="'+r.status+'">'+r.status+'</td><td class="col-maquina">'+mc+'</td><td class="col-obs">'+obsCell+'</td>';
   return tr;
 }
 
