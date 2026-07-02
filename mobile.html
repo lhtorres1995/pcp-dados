@@ -199,20 +199,27 @@ function getVelocidade(r){
   return null;
 }
 function getDesperdicio(r){return DESPERDICIO[r.grupo]||0;}
+function parseNum(v){
+  if(v==null||v==='')return NaN;
+  if(typeof v==='number')return v;
+  var s=v.toString().trim();
+  if(s.indexOf(',')>=0)return parseFloat(s.replace(/\./g,'').replace(',','.'));
+  return parseFloat(s);
+}
 function calcTempo(r){
   var gInfo=GRUPOS_DEF.find(function(x){return x.nome===r.grupo;});
   if(!gInfo||gInfo.tipoTempo==='none')return null;
   var vel=getVelocidade(r);
   var setup=parseFloat((r.setup||'').replace(',','.'));
-  var ml=parseFloat((r.metros||'').replace(',','.'));
-  var qtd=parseFloat((r.qtd||'').replace(',','.'));
+  var ml=parseNum(r.metros);
+  var qtd=parseNum(r.qtd);
   if(!vel||vel<=0)return null;
   var setupH=(r.grupo==='DIGITAL'||isNaN(setup)||setup<=0)?0:(setup/60);
   if(gInfo.tipoTempo==='bat'){
     if(!qtd||isNaN(qtd))return null;
     var un=(r.un||'').toUpperCase().trim();
     if(un.includes('M/')||un==='MILHEIRO'||un==='MIL')qtd=qtd*1000;
-    var imagens=parseFloat((r.imagens||'').toString().replace(',','.'));
+    var imagens=parseNum(r.imagens);
     if(!imagens||imagens<=0)imagens=1;
     return fmtTempo(((qtd/imagens)/vel)+setupH);
   }
