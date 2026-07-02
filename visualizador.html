@@ -323,6 +323,7 @@ function onChangeGrupo(id,val){
 }
 function onChangeSub(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;r.sub=val;r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();}
 function onChangeObs(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;r.obs=val;r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();}
+function onChangeImagens(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;var n=parseFloat((val||'').toString().replace(',','.'));r.imagens=(n&&n>0)?n:'';r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();renderGrupos();}
 
 function filtrarEntrega(r,f){
   if(!f)return true;
@@ -460,7 +461,9 @@ function tempoHoras(r){
     if(!qtd||isNaN(qtd))return null;
     var un=(r.un||'').toUpperCase().trim();
     if(un.includes('M/')||un==='MILHEIRO'||un==='MIL')qtd=qtd*1000;
-    return(qtd/vel)+setupH;
+    var imagens=parseFloat((r.imagens||'').toString().replace(',','.'));
+    if(!imagens||imagens<=0)imagens=1;
+    return((qtd/imagens)/vel)+setupH;
   }
   if(!ml||isNaN(ml))return null;
   ml=ml+getDesperdicio(r);
@@ -701,6 +704,10 @@ function criarLinha(r,g,subs,riscoData){
   var obsCell='<select class="sel obs-sel '+(r.obs?'obs-ativo':'')+'" onchange="onChangeObs(\''+r.id+'\',this.value)">'+opObs+'</select>';
   var tempo=calcTempo(r);
   var tempoCell=tempo?'<span style="font-size:10px;background:#E6F1FB;color:#185FA5;padding:1px 6px;border-radius:20px;white-space:nowrap">'+tempo+'</span>':'<span style="color:var(--text3);font-size:10px">—</span>';
+  var imagensCell='';
+  if(r.grupo==='BATIDA'){
+    imagensCell='<div style="margin-top:3px"><input type="number" min="1" step="1" value="'+(r.imagens||'')+'" placeholder="imgs" title="No de imagens da faca" onclick="event.stopPropagation()" onchange="onChangeImagens(\''+r.id+'\',this.value)" style="width:48px;padding:2px;font-size:10px;border:1px solid var(--border,#ccc);border-radius:4px;text-align:center;background:transparent;color:inherit"></div>';
+  }
   var mpShort=limparMP(r.mp);
   var formato=extrairFormato(r.descricao);
   var formatoCellV=formato?'<span style="font-size:10px;background:#F0F0E8;color:#555;padding:1px 5px;border-radius:4px;white-space:nowrap;font-family:monospace;font-weight:600">'+formato+'</span>':'<span style="color:var(--text3);font-size:10px">—</span>';
@@ -714,7 +721,7 @@ function criarLinha(r,g,subs,riscoData){
     diasCell+='<br><span style="font-size:9px;color:'+corPrev+'" title="Previsao de conclusao na fila desta maquina">prev '+riscoData.prevTxt+'</span>';
   }
   var lockIco=temPend?'<i class="ti ti-lock lock-ico" title="'+(r.obs||'')+'"></i>':'';
-  tr.innerHTML='<td class="pedido">'+lockIco+(r.pedido||'')+'</td><td class="item">'+(r.item||'')+'</td><td class="cliente">'+(r.cliente||'')+'</td><td class="produto">'+(r.produto||'')+'</td><td class="desc">'+(r.descricao||'')+'</td><td class="un" style="text-align:center">'+formatoCellV+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+(r.un||'')+'</td><td class="qtd" style="text-align:right">'+fmtQtd(r.metros||'')+'</td><td class="un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="un" style="text-align:center">'+tempoCell+'</td><td class="entrega">'+(r.entrega||'')+dataTag+'</td><td class="un" style="text-align:center">'+diasCell+'</td><td class="maquina-col">'+mc+'</td><td class="obs-col">'+obsCell+'</td>';
+  tr.innerHTML='<td class="pedido">'+lockIco+(r.pedido||'')+'</td><td class="item">'+(r.item||'')+'</td><td class="cliente">'+(r.cliente||'')+'</td><td class="produto">'+(r.produto||'')+'</td><td class="desc">'+(r.descricao||'')+'</td><td class="un" style="text-align:center">'+formatoCellV+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+(r.un||'')+'</td><td class="qtd" style="text-align:right">'+fmtQtd(r.metros||'')+'</td><td class="un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="un" style="text-align:center">'+tempoCell+imagensCell+'</td><td class="entrega">'+(r.entrega||'')+dataTag+'</td><td class="un" style="text-align:center">'+diasCell+'</td><td class="maquina-col">'+mc+'</td><td class="obs-col">'+obsCell+'</td>';
   return tr;
 }
 
