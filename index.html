@@ -288,7 +288,8 @@ function tempoHoras(r){
     if(isNaN(qtdBat))return null;
     const un=(r.un||'').toString().toUpperCase().trim();
     if(un.includes('M/') || un==='MILHEIRO' || un==='MIL')qtdBat=qtdBat*1000;
-    return(qtdBat/vel)+setupH;
+    const imagens=getImagens(r); // nº de imagens da faca (cada batida produz N etiquetas)
+    return((qtdBat/imagens)/vel)+setupH;
   }
   if(!ml||isNaN(ml))return null;
   ml=ml+getDesperdicio(r); // desperdício fixo por trabalho
@@ -363,6 +364,7 @@ async function carregarDoGitHub(){
         if(r.sub)overrides[r.id].sub=r.sub;
         if(r.obs)overrides[r.id].obs=r.obs;
         if(r.ordem!==undefined&&r.ordem!==null&&r.ordem!=='')overrides[r.id].ordem=r.ordem;
+        if(r.imagens!==undefined&&r.imagens!==null&&r.imagens!=='')overrides[r.id].imagens=r.imagens;
         if(r.finalizadoEm)overrides[r.id].finalizadoEm=r.finalizadoEm;
         if(r.noPrazo!==undefined&&r.noPrazo!==null)overrides[r.id].noPrazo=r.noPrazo;
         if(r.finalizado===true||r.finalizado==='true')overrides[r.id].grupo='__FIN__';
@@ -388,6 +390,7 @@ async function sincronizar(){
       descricao:r.descricao,qtd:r.qtd,un:r.un,entrega:r.entrega,status:r.status,
       grupo:getGrupo(r)||'',sub:getSub(r)||'',obs:getObs(r)||'',
       ordem:getOrdem(r),
+      imagens:(overrides[r.id]&&overrides[r.id].imagens)||'',
       finalizadoEm:(overrides[r.id]&&overrides[r.id].finalizadoEm)||'',
       noPrazo:(overrides[r.id]&&overrides[r.id].noPrazo!==undefined)?overrides[r.id].noPrazo:null,
       metros:r.metros||'',velocidade:r.velocidade||'',setup:r.setup||'',
@@ -498,6 +501,13 @@ function getGrupo(r){const ov=getOv(r);return ov.grupo!==undefined?ov.grupo:r.gr
 function getSub(r){return(getOv(r).sub)||'';}
 function getObs(r){return(getOv(r).obs)||'';}
 function getOrdem(r){const o=getOv(r).ordem;return(o===undefined||o===null)?null:o;}
+function onChangeImagens(id,val){
+  overrides[id]=overrides[id]||{};
+  const n=parseFloat((val||'').toString().replace(',','.'));
+  if(n&&n>0)overrides[id].imagens=n;else delete overrides[id].imagens;
+  salvarLocal();renderTabela();
+}
+function getImagens(r){const im=getOv(r).imagens;const n=parseFloat((im||'').toString().replace(',','.'));return(n&&n>0)?n:1;}
 // Ordena: itens com ordem manual primeiro (pela ordem definida), depois os demais por data de entrega
 function ordCompare(a,b){
   const oa=getOrdem(a),ob=getOrdem(b);
@@ -813,6 +823,12 @@ function criarLinha(r,anterior){
   }
   const tempo=calcTempo(r);
   const tempoCell=tempo?'<span style="font-size:11px;background:#E6F1FB;color:#185FA5;padding:2px 7px;border-radius:20px;white-space:nowrap">'+tempo+'</span>':'<span style="color:#ccc;font-size:11px">—</span>';
+  // Campo de imagens da faca (só para BATIDA)
+  let imagensCell='';
+  if(getGrupo(r)==='BATIDA'){
+    const imVal=(getOv(r).imagens)||'';
+    imagensCell='<div style="margin-top:3px"><input type="number" min="1" step="1" value="'+imVal+'" placeholder="imgs" title="Nº de imagens da faca (cada batida produz N etiquetas)" onclick="event.stopPropagation()" onchange="onChangeImagens(\''+r.id+'\',this.value)" style="width:52px;padding:2px 4px;font-size:10px;border:1px solid #ccc;border-radius:4px;text-align:center"></div>';
+  }
   const mpShort=limparMP(r.mp);
   const formato=extrairFormato(r.descricao);
   const formatoCell=formato?'<span style="font-size:11px;background:#F0F0E8;color:#555;padding:2px 6px;border-radius:4px;white-space:nowrap;font-family:monospace">'+formato+'</span>':'<span style="color:#ccc;font-size:11px">—</span>';
@@ -822,7 +838,7 @@ function criarLinha(r,anterior){
   else if(dDias<0)diasCell='<span style="color:#DC2626;font-weight:700">'+Math.abs(dDias)+'d atraso</span>';
   else if(dDias===0)diasCell='<span style="color:#EA580C;font-weight:700">hoje</span>';
   else diasCell='<span style="color:#666">'+dDias+'d</span>';
-  tr.innerHTML='<td style="text-align:center"><input type="checkbox" class="chk-linha" data-id="'+r.id+'" onclick="toggleSel(\''+r.id+'\',event)" '+(selLote.has(r.id)?'checked':'')+'></td><td class="col-pedido">'+r.pedido+'</td><td class="col-item">'+r.item+'</td><td class="col-cliente" title="'+r.cliente+'">'+r.cliente+'</td><td class="col-produto" title="'+r.produto+'">'+r.produto+'</td><td class="col-desc">'+r.descricao+'</td><td class="col-un" style="text-align:center">'+formatoCell+'</td><td class="col-qtd">'+formatarQtd(r.qtd)+'</td><td class="col-un">'+r.un+'</td><td class="col-qtd" style="text-align:right">'+formatarQtd(r.metros)+'</td><td class="col-un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="col-desc" title="'+(r.mp||'')+'">'+mpShort+(trocaSetup?'<span class="setup-flag" title="Troca de material em relação ao item anterior">↻ setup</span>':'')+'</td><td class="col-un" style="text-align:center">'+tempoCell+'</td><td class="col-entrega">'+r.entrega+ub+'</td><td class="col-un" style="text-align:center">'+diasCell+'</td><td class="col-status" title="'+r.status+'">'+r.status+'</td><td class="col-maquina">'+mc+'</td><td class="col-obs">'+obsCell+'</td>';
+  tr.innerHTML='<td style="text-align:center"><input type="checkbox" class="chk-linha" data-id="'+r.id+'" onclick="toggleSel(\''+r.id+'\',event)" '+(selLote.has(r.id)?'checked':'')+'></td><td class="col-pedido">'+r.pedido+'</td><td class="col-item">'+r.item+'</td><td class="col-cliente" title="'+r.cliente+'">'+r.cliente+'</td><td class="col-produto" title="'+r.produto+'">'+r.produto+'</td><td class="col-desc">'+r.descricao+'</td><td class="col-un" style="text-align:center">'+formatoCell+'</td><td class="col-qtd">'+formatarQtd(r.qtd)+'</td><td class="col-un">'+r.un+'</td><td class="col-qtd" style="text-align:right">'+formatarQtd(r.metros)+'</td><td class="col-un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="col-desc" title="'+(r.mp||'')+'">'+mpShort+(trocaSetup?'<span class="setup-flag" title="Troca de material em relação ao item anterior">↻ setup</span>':'')+'</td><td class="col-un" style="text-align:center">'+tempoCell+imagensCell+'</td><td class="col-entrega">'+r.entrega+ub+'</td><td class="col-un" style="text-align:center">'+diasCell+'</td><td class="col-status" title="'+r.status+'">'+r.status+'</td><td class="col-maquina">'+mc+'</td><td class="col-obs">'+obsCell+'</td>';
   return tr;
 }
 
