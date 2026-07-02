@@ -282,7 +282,10 @@ function carregar(manual){
     .then(function(dados){
       window._totalRecebido=dados.length;
       window._semMaquina=dados.filter(function(r){return !r.finalizado&&(!r.grupo||r.grupo==='')&&r.grupo!=='__FIN__';}).length;
-      DADOS=dados.filter(function(r){return !r.finalizado&&r.grupo&&r.grupo!=='__FIN__';});
+      DADOS=dados.filter(function(r){return !r.finalizado&&r.grupo!=='__FIN__';}).map(function(r){
+        if(!r.grupo||r.grupo===''){r.grupo='(AGUARDANDO MÁQUINA)';}
+        return r;
+      });
       var fM=document.getElementById('filtro-maquina');
       var valAtual=fM.value;
       fM.innerHTML='<option value="">Todas as maquinas</option>';
