@@ -286,12 +286,24 @@ function carregar(manual){
     // Com token: usa API do GitHub (sem cache, sempre atualizado)
     fetchPromise=fetch(getAPI(),{headers:getHeaders()})
       .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
-      .then(function(json){var bytes=Uint8Array.from(atob(json.content.replace(/\n/g,'')),function(c){return c.charCodeAt(0);});return JSON.parse(new TextDecoder('utf-8').decode(bytes));});
+      .then(function(json){
+        if(!json||!json.content)return [];
+        var bytes=Uint8Array.from(atob(json.content.replace(/\n/g,'')),function(c){return c.charCodeAt(0);});
+        var texto=new TextDecoder('utf-8').decode(bytes).trim();
+        if(!texto)return [];
+        try{var d=JSON.parse(texto);return Array.isArray(d)?d:[];}
+        catch(err){throw new Error('Arquivo de dados vazio ou corrompido. Sincronize novamente pelo Facilitador.');}
+      });
   } else {
     // Sem token: fallback para RAW (pode ter cache de até 5min)
     fetchPromise=fetch(RAW_URL+'?t='+Date.now())
       .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.text();})
-      .then(function(text){return JSON.parse(text);});
+      .then(function(text){
+        var t=(text||'').trim();
+        if(!t)return [];
+        try{var d=JSON.parse(t);return Array.isArray(d)?d:[];}
+        catch(err){throw new Error('Arquivo de dados vazio ou corrompido. Sincronize novamente pelo Facilitador.');}
+      });
   }
   fetchPromise
     .then(function(dados){
