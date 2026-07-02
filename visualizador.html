@@ -706,7 +706,7 @@ function criarLinha(r,g,subs,riscoData){
   var tempoCell=tempo?'<span style="font-size:10px;background:#E6F1FB;color:#185FA5;padding:1px 6px;border-radius:20px;white-space:nowrap">'+tempo+'</span>':'<span style="color:var(--text3);font-size:10px">—</span>';
   var imagensCell='';
   if(r.grupo==='BATIDA'){
-    imagensCell='<div style="margin-top:3px"><input type="number" min="1" step="1" value="'+(r.imagens||'')+'" placeholder="imgs" title="No de imagens da faca" onclick="event.stopPropagation()" onchange="onChangeImagens(\''+r.id+'\',this.value)" style="width:48px;padding:2px;font-size:10px;border:1px solid var(--border,#ccc);border-radius:4px;text-align:center;background:transparent;color:inherit"></div>';
+    imagensCell='<div style="margin-top:5px;display:flex;align-items:center;gap:5px"><span style="font-size:10px;color:#F59E0B;white-space:nowrap">Imgs faca:</span><input type="number" min="1" step="1" value="'+(r.imagens||'')+'" placeholder="1" title="No de imagens da faca" onclick="event.stopPropagation()" onchange="onChangeImagens(\''+r.id+'\',this.value)" style="width:50px;padding:3px 5px;font-size:11px;border:1.5px solid #F59E0B;border-radius:5px;text-align:center;background:rgba(245,158,11,.1);color:inherit"></div>';
   }
   var mpShort=limparMP(r.mp);
   var formato=extrairFormato(r.descricao);
@@ -721,7 +721,7 @@ function criarLinha(r,g,subs,riscoData){
     diasCell+='<br><span style="font-size:9px;color:'+corPrev+'" title="Previsao de conclusao na fila desta maquina">prev '+riscoData.prevTxt+'</span>';
   }
   var lockIco=temPend?'<i class="ti ti-lock lock-ico" title="'+(r.obs||'')+'"></i>':'';
-  tr.innerHTML='<td class="pedido">'+lockIco+(r.pedido||'')+'</td><td class="item">'+(r.item||'')+'</td><td class="cliente">'+(r.cliente||'')+'</td><td class="produto">'+(r.produto||'')+'</td><td class="desc">'+(r.descricao||'')+'</td><td class="un" style="text-align:center">'+formatoCellV+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+(r.un||'')+'</td><td class="qtd" style="text-align:right">'+fmtQtd(r.metros||'')+'</td><td class="un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="un" style="text-align:center">'+tempoCell+imagensCell+'</td><td class="entrega">'+(r.entrega||'')+dataTag+'</td><td class="un" style="text-align:center">'+diasCell+'</td><td class="maquina-col">'+mc+'</td><td class="obs-col">'+obsCell+'</td>';
+  tr.innerHTML='<td class="pedido">'+lockIco+(r.pedido||'')+'</td><td class="item">'+(r.item||'')+'</td><td class="cliente">'+(r.cliente||'')+'</td><td class="produto">'+(r.produto||'')+'</td><td class="desc">'+(r.descricao||'')+'</td><td class="un" style="text-align:center">'+formatoCellV+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+(r.un||'')+'</td><td class="qtd" style="text-align:right">'+fmtQtd(r.metros||'')+'</td><td class="un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="un" style="text-align:center">'+tempoCell+'</td><td class="entrega">'+(r.entrega||'')+dataTag+'</td><td class="un" style="text-align:center">'+diasCell+'</td><td class="maquina-col">'+mc+imagensCell+'</td><td class="obs-col">'+obsCell+'</td>';
   return tr;
 }
 
