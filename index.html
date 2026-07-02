@@ -225,7 +225,7 @@ const GRUPOS=[
   {nome:'TERMICA',subs:[],display:'TÉRMICA',tipoTempo:'ml'},
   {nome:'BATIDA',subs:['CHINESA','TURO'],tipoTempo:'bat'},
   {nome:'CORTE BROTECH / VOREY',subs:['BROTECH','VOREY'],tipoTempo:'ml'},
-  {nome:'REVISORAS',subs:[],tipoTempo:'none'},
+  {nome:'REVISORAS',subs:[],tipoTempo:'ml'},
   {nome:'DIGITAL',subs:[],tipoTempo:'ml'},
 ];
 const OBS_OPCOES=['','Aguardando Faca','Aguardando Clichê','Aguardando Aprovação','Aguardando MP'];
@@ -237,19 +237,42 @@ function horasUteisDia(d){const dow=d.getDay();if(dow===0||dow===6)return 0;if(d
 function horasParaData(horas){if(horas<=0)return new Date();let d=new Date();d.setHours(8,0,0,0);let rest=horas,guard=0;while(rest>0&&guard<400){const cap=horasUteisDia(d);if(cap>0){if(rest<=cap)return d;rest-=cap;}d.setDate(d.getDate()+1);d.setHours(8,0,0,0);guard++;}return d;}
 function backlogDias(horas){return horas<=0?0:horas/8.8;}
 const VELOCIDADES={
-  'FLEXO 1':2400,'FLEXO 2':2400,'FLEXO 3':2400,
-  'ETIRAMA':3000,'NACBRAS':2400,'KROMIA':2400,
-  'DIGITAL':2400,
-  'CHINESA':5000,'TURO':5000,
-  'TROQUELADORA 1':2400,'TROQUELADORA 2':2400,'PULMAO':2400,
-  'BROTECH':2400,'VOREY':900,
+  'FLEXO 1':1800,'FLEXO 2':1800,'FLEXO 3':1800,
+  'ETIRAMA':2400,'NACBRAS':2400,'KROMIA':2400,
+  'DIGITAL':1800,
+  'CHINESA':3000,'TURO':3000,
+  'TROQUELADORA 1':2000,'TROQUELADORA 2':2000,'PULMAO':2000,
+  'BROTECH':2000,'VOREY':600,
+  'REVISORAS':2400,
   'TERMICA':360
+};
+// Desperdício fixo em metros, somado uma vez por trabalho, conforme o grupo de máquina
+const DESPERDICIO={
+  'FLEXO 350':90,'FLEXO 250':90,
+  'CORTE BROTECH / VOREY':10,'DIGITAL':10,'TROQUELADORAS':10,'REVISORAS':10,
+  'BATIDA':15,'TERMICA':5
 };
 function normChave(s){return(s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
 function getVelocidade(r){
   const sub=getSub(r);
   const chave=sub?normChave(sub):normChave(getGrupo(r));
-  return VELOCIDADES[chave]||null;
+  // Velocidade da submáquina; se não achar, tenta pelo grupo (Revisoras, Térmica, Digital)
+  if(VELOCIDADES[chave]!==undefined)return VELOCIDADES[chave];
+  const gChave=normChave(getGrupo(r));
+  // mapeia grupos para velocidade representativa quando não há submáquina específica
+  if(gChave==='FLEXO 350')return 2400;
+  if(gChave==='FLEXO 250')return 1800;
+  if(gChave==='TROQUELADORAS')return 2000;
+  if(gChave==='CORTE BROTECH / VOREY')return 2000;
+  if(gChave==='REVISORAS')return 2400;
+  if(gChave==='DIGITAL')return 1800;
+  if(gChave==='TERMICA')return 360;
+  if(gChave==='BATIDA')return 3000;
+  return null;
+}
+function getDesperdicio(r){
+  const g=getGrupo(r);
+  return DESPERDICIO[g]||0;
 }
 function tempoHoras(r){
   const g=getGrupo(r);
@@ -257,7 +280,7 @@ function tempoHoras(r){
   if(!gInfo||gInfo.tipoTempo==='none')return null;
   const vel=getVelocidade(r);
   const setup=parseFloat((r.setup||'').toString().replace(',','.'));
-  const ml=parseFloat((r.metros||'').toString().replace(',','.'));
+  let ml=parseFloat((r.metros||'').toString().replace(',','.'));
   if(!vel||vel<=0)return null;
   const setupH=(g==='DIGITAL'||isNaN(setup)||setup<=0)?0:(setup/60);
   if(gInfo.tipoTempo==='bat'){
@@ -268,6 +291,7 @@ function tempoHoras(r){
     return(qtdBat/vel)+setupH;
   }
   if(!ml||isNaN(ml))return null;
+  ml=ml+getDesperdicio(r); // desperdício fixo por trabalho
   return(ml/vel)+setupH;
 }
 function calcTempo(r){return formatarTempo(tempoHoras(r));}
@@ -367,6 +391,7 @@ async function sincronizar(){
       finalizadoEm:(overrides[r.id]&&overrides[r.id].finalizadoEm)||'',
       noPrazo:(overrides[r.id]&&overrides[r.id].noPrazo!==undefined)?overrides[r.id].noPrazo:null,
       metros:r.metros||'',velocidade:r.velocidade||'',setup:r.setup||'',
+      saldo:r.saldo||'',qtdTotal:r.qtdTotal||'',mlTotal:r.mlTotal||'',
       mp:r.mp||'',largMP:r.largMP||'',
       finalizado:isFinalizado(r),atualizado:new Date().toLocaleString('pt-BR')
     }));
@@ -402,10 +427,12 @@ async function processar(){
   const cCliente=detectarCol(dadosEntregas[0],['cliente']);
   const cProd=detectarCol(dadosEntregas[0],['produto']);
   const cDesc=detectarCol(dadosEntregas[0],['descrição','descricao','produto - descrição']);
-  const cQtd=detectarCol(dadosEntregas[0],['qtd','qntd','quantidade','saldo']);
+  const cQtdTotal=detectarCol(dadosEntregas[0],['qtde. pedido','qtde pedido','qtd. pedido','quantidade']);
+  const cSaldo=detectarCol(dadosEntregas[0],['saldo pedido','saldo']);
+  const cMLPedido=detectarCol(dadosEntregas[0],['m/l pedido','m/l','metros lineares','metros']);
   const cUn=detectarCol(dadosEntregas[0],['un.','unidade','un']);
-  const cEnt=detectarCol(dadosEntregas[0],['entrega','data']);
-  const cStat=detectarCol(dadosEntregas[0],['status']);
+  const cEnt=detectarCol(dadosEntregas[0],['entrega no cliente','entrega','data']);
+  const cStat=detectarCol(dadosEntregas[0],['status produção','status producao','status']);
   const cMetros=detectarCol(dadosPCP[0],['metros lineares','metros','m/l']);
   const cVel=detectarCol(dadosPCP[0],['velocidade','vel.']);
   const cSetup=detectarCol(dadosPCP[0],['tempo de setup','setup','acerto']);
@@ -418,21 +445,33 @@ async function processar(){
       const k=chave(ei.pedido,ei.item);
       if(!mapaPCP[k])mapaPCP[k]={};
       mapaPCP[k].grupo=normGrupo(row[cMaq]);
-      mapaPCP[k].metros=nz(row[cMetros]);
-      mapaPCP[k].velocidade=nz(row[cVel]);
       mapaPCP[k].setup=nz(row[cSetup]);
       mapaPCP[k].mp=nz(row[cMP]);
       mapaPCP[k].largMP=nz(row[cLargMP]);
     }
   });
+  function num(v){return parseFloat((v==null?'':v).toString().replace(/\./g,'').replace(',','.'))||0;}
   dadosCruzados=dadosEntregas.map(row=>{
     const pedido=nz(row[cPedido]),item=nz(row[cItem]),status=nz(row[cStat]);
     const k=chave(pedido,item);
     const pcp=mapaPCP[k]||{};
     const grupo=pcp.grupo||'';
+    // M/L do saldo = M/L total × (Saldo ÷ Qtde total)  — regra de 3
+    const qtdTotal=num(row[cQtdTotal]);
+    const saldo=num(row[cSaldo]);
+    const mlTotal=num(row[cMLPedido]);
+    let mlSaldo='';
+    if(mlTotal>0){
+      if(qtdTotal>0&&saldo>0)mlSaldo=(mlTotal*(saldo/qtdTotal));
+      else mlSaldo=mlTotal; // sem saldo/qtde válidos, usa o total
+      mlSaldo=Math.round(mlSaldo*100)/100;
+    }
+    // quantidade exibida = saldo (o que falta produzir); fallback para total
+    const qtdExib=nz(row[cSaldo])||nz(row[cQtdTotal]);
     return{id:k,pedido,item,cliente:nz(row[cCliente]),produto:nz(row[cProd]),descricao:limparDesc(row[cDesc]),
-      qtd:nz(row[cQtd]),un:nz(row[cUn]),entrega:formatarData(row[cEnt]),status,grupo,correlacionado:!!grupo,
-      metros:pcp.metros||'',velocidade:pcp.velocidade||'',setup:pcp.setup||'',
+      qtd:qtdExib,un:nz(row[cUn]),entrega:formatarData(row[cEnt]),status,grupo,correlacionado:!!grupo,
+      metros:(mlSaldo!==''?mlSaldo:''),qtdTotal:nz(row[cQtdTotal]),saldo:nz(row[cSaldo]),mlTotal:nz(row[cMLPedido]),
+      velocidade:'',setup:pcp.setup||'',
       mp:pcp.mp||'',largMP:pcp.largMP||''};
   }).filter(r=>!nl(r.status).includes('finaliz'));
   const fM=document.getElementById('filtro-maquina');
