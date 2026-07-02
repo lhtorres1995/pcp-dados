@@ -359,7 +359,7 @@ function ordCompare(a,b){
   var da=parseDateBR(a.entrega),db=parseDateBR(b.entrega);
   return(da?da.getTime():9e12)-(db?db.getTime():9e12);
 }
-function somarML(rows){return rows.reduce(function(acc,r){var v=parseNum(r.metros);return acc+(isNaN(v)?0:v);},0);}
+function somarML(rows){return rows.reduce(function(acc,r){var v=metrosReais(r);return acc+(isNaN(v)?0:v);},0);}
 // Ordenação por coluna (apenas visual, não altera a fila salva)
 var vizSortCol='',vizSortDir=1;
 function numBR(v){return parseFloat((v||'').toString().replace(/\./g,'').replace(',','.'))||0;}
@@ -444,6 +444,17 @@ function getVelocidade(r){
   return null;
 }
 function getDesperdicio(r){return DESPERDICIO[r.grupo]||0;}
+function metrosReais(r){
+  // Recalcula o M/L do saldo a partir dos campos brutos, blindando contra valores salvos errados
+  var mlT=parseNum(r.mlTotal),sal=parseNum(r.saldo),qt=parseNum(r.qtdTotal);
+  if(!isNaN(mlT)&&mlT>0){
+    if(!isNaN(sal)&&sal>0&&!isNaN(qt)&&qt>0)return Math.round(mlT*(sal/qt)*100)/100;
+    return mlT;
+  }
+  // fallback: usa o metros gravado
+  var m=parseNum(r.metros);
+  return isNaN(m)?0:m;
+}
 function parseNum(v){
   if(v==null||v==='')return NaN;
   if(typeof v==='number')return v;
@@ -460,7 +471,7 @@ function tempoHoras(r){
   if(!tipo||tipo==='none')return null;
   var vel=getVelocidade(r);
   var setup=parseFloat((r.setup||'').replace(',','.'));
-  var ml=parseNum(r.metros);
+  var ml=metrosReais(r);
   var qtd=parseNum(r.qtd);
   if(!vel||vel<=0)return null;
   var setupH=(r.grupo==='DIGITAL'||isNaN(setup)||setup<=0)?0:(setup/60);
@@ -728,7 +739,7 @@ function criarLinha(r,g,subs,riscoData){
     diasCell+='<br><span style="font-size:9px;color:'+corPrev+'" title="Previsao de conclusao na fila desta maquina">prev '+riscoData.prevTxt+'</span>';
   }
   var lockIco=temPend?'<i class="ti ti-lock lock-ico" title="'+(r.obs||'')+'"></i>':'';
-  tr.innerHTML='<td class="pedido">'+lockIco+(r.pedido||'')+'</td><td class="item">'+(r.item||'')+'</td><td class="cliente">'+(r.cliente||'')+'</td><td class="produto">'+(r.produto||'')+'</td><td class="desc">'+(r.descricao||'')+'</td><td class="un" style="text-align:center">'+formatoCellV+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+(r.un||'')+'</td><td class="qtd" style="text-align:right">'+fmtQtd(r.metros||'')+'</td><td class="un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="un" style="text-align:center">'+tempoCell+'</td><td class="entrega">'+(r.entrega||'')+dataTag+'</td><td class="un" style="text-align:center">'+diasCell+'</td><td class="maquina-col">'+mc+imagensCell+'</td><td class="obs-col">'+obsCell+'</td>';
+  tr.innerHTML='<td class="pedido">'+lockIco+(r.pedido||'')+'</td><td class="item">'+(r.item||'')+'</td><td class="cliente">'+(r.cliente||'')+'</td><td class="produto">'+(r.produto||'')+'</td><td class="desc">'+(r.descricao||'')+'</td><td class="un" style="text-align:center">'+formatoCellV+'</td><td class="qtd">'+fmtQtd(r.qtd)+'</td><td class="un">'+(r.un||'')+'</td><td class="qtd" style="text-align:right">'+fmtQtd(metrosReais(r))+'</td><td class="un" style="text-align:center">'+(r.largMP?r.largMP+'mm':'—')+'</td><td class="desc" title="'+(r.mp||'')+'">'+mpShort+'</td><td class="un" style="text-align:center">'+tempoCell+'</td><td class="entrega">'+(r.entrega||'')+dataTag+'</td><td class="un" style="text-align:center">'+diasCell+'</td><td class="maquina-col">'+mc+imagensCell+'</td><td class="obs-col">'+obsCell+'</td>';
   return tr;
 }
 
