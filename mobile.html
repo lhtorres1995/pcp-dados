@@ -140,7 +140,7 @@ var GRUPOS_DEF=[
   {nome:'TERMICA',icon:'TH',subs:[],tipoTempo:'ml'},
   {nome:'BATIDA',icon:'BA',subs:['CHINESA','TURO'],tipoTempo:'bat'},
   {nome:'CORTE BROTECH / VOREY',icon:'CB',subs:['BROTECH','VOREY'],tipoTempo:'ml'},
-  {nome:'REVISORAS',icon:'RE',subs:[],tipoTempo:'none'},
+  {nome:'REVISORAS',icon:'RE',subs:[],tipoTempo:'ml'},
   {nome:'DIGITAL',icon:'DG',subs:[],tipoTempo:'ml'},
 ];
 function limparMP(raw){
@@ -169,19 +169,36 @@ function ordCompare(a,b){
   return(da?da.getTime():9e12)-(db?db.getTime():9e12);
 }
 var VELOCIDADES={
-  'FLEXO 1':2400,'FLEXO 2':2400,'FLEXO 3':2400,
-  'ETIRAMA':3000,'NACBRAS':2400,'KROMIA':2400,
-  'DIGITAL':2400,
-  'CHINESA':5000,'TURO':5000,
-  'TROQUELADORA 1':2400,'TROQUELADORA 2':2400,'PULMAO':2400,
-  'BROTECH':2400,'VOREY':900,
+  'FLEXO 1':1800,'FLEXO 2':1800,'FLEXO 3':1800,
+  'ETIRAMA':2400,'NACBRAS':2400,'KROMIA':2400,
+  'DIGITAL':1800,
+  'CHINESA':3000,'TURO':3000,
+  'TROQUELADORA 1':2000,'TROQUELADORA 2':2000,'PULMAO':2000,
+  'BROTECH':2000,'VOREY':600,
+  'REVISORAS':2400,
   'TERMICA':360
+};
+var DESPERDICIO={
+  'FLEXO 350':90,'FLEXO 250':90,
+  'CORTE BROTECH / VOREY':10,'DIGITAL':10,'TROQUELADORAS':10,'REVISORAS':10,
+  'BATIDA':15,'TERMICA':5
 };
 function normChave(s){return(s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
 function getVelocidade(r){
   var chave=r.sub?normChave(r.sub):normChave(r.grupo);
-  return VELOCIDADES[chave]||null;
+  if(VELOCIDADES[chave]!==undefined)return VELOCIDADES[chave];
+  var g=normChave(r.grupo);
+  if(g==='FLEXO 350')return 2400;
+  if(g==='FLEXO 250')return 1800;
+  if(g==='TROQUELADORAS')return 2000;
+  if(g==='CORTE BROTECH / VOREY')return 2000;
+  if(g==='REVISORAS')return 2400;
+  if(g==='DIGITAL')return 1800;
+  if(g==='TERMICA')return 360;
+  if(g==='BATIDA')return 3000;
+  return null;
 }
+function getDesperdicio(r){return DESPERDICIO[r.grupo]||0;}
 function calcTempo(r){
   var gInfo=GRUPOS_DEF.find(function(x){return x.nome===r.grupo;});
   if(!gInfo||gInfo.tipoTempo==='none')return null;
@@ -198,6 +215,7 @@ function calcTempo(r){
     return fmtTempo((qtd/vel)+setupH);
   }
   if(!ml||isNaN(ml))return null;
+  ml=ml+getDesperdicio(r);
   return fmtTempo((ml/vel)+setupH);
 }
 function fmtTempo(h){
