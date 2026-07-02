@@ -183,6 +183,12 @@ var DESPERDICIO={
   'CORTE BROTECH / VOREY':10,'DIGITAL':10,'TROQUELADORAS':10,'REVISORAS':10,
   'BATIDA':15,'TERMICA':5
 };
+var SETUP_FIXO={
+  'FLEXO 350':90,'FLEXO 250':90,
+  'CORTE BROTECH / VOREY':20,'DIGITAL':20,'TROQUELADORAS':20,'BATIDA':20,
+  'REVISORAS':10,'TERMICA':10
+};
+function getSetupMin(r){return SETUP_FIXO[r.grupo]||0;}
 function normChave(s){return(s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
 function getVelocidade(r){
   var chave=r.sub?normChave(r.sub):normChave(r.grupo);
@@ -221,11 +227,11 @@ function calcTempo(r){
   var gInfo=GRUPOS_DEF.find(function(x){return x.nome===r.grupo;});
   if(!gInfo||gInfo.tipoTempo==='none')return null;
   var vel=getVelocidade(r);
-  var setup=parseFloat((r.setup||'').replace(',','.'));
+  var setup=getSetupMin(r);
   var ml=metrosReais(r);
   var qtd=parseNum(r.qtd);
   if(!vel||vel<=0)return null;
-  var setupH=(r.grupo==='DIGITAL'||isNaN(setup)||setup<=0)?0:(setup/60);
+  var setupH=(setup>0)?(setup/60):0;
   if(gInfo.tipoTempo==='bat'){
     if(!qtd||isNaN(qtd))return null;
     var un=(r.un||'').toUpperCase().trim();
