@@ -212,7 +212,9 @@ function calcTempo(r){
     if(!qtd||isNaN(qtd))return null;
     var un=(r.un||'').toUpperCase().trim();
     if(un.includes('M/')||un==='MILHEIRO'||un==='MIL')qtd=qtd*1000;
-    return fmtTempo((qtd/vel)+setupH);
+    var imagens=parseFloat((r.imagens||'').toString().replace(',','.'));
+    if(!imagens||imagens<=0)imagens=1;
+    return fmtTempo(((qtd/imagens)/vel)+setupH);
   }
   if(!ml||isNaN(ml))return null;
   ml=ml+getDesperdicio(r);
@@ -319,6 +321,7 @@ function onChangeGrupo(id,val){
 }
 function onChangeSub(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;r.sub=val;r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();}
 function onChangeObs(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;r.obs=val;r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();}
+function onChangeImagens(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;var n=parseFloat((val||'').toString().replace(',','.'));r.imagens=(n&&n>0)?n:'';r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();renderGrupos();}
 
 function renderChips(){
   var container=document.getElementById('chips-maquina');
@@ -432,7 +435,8 @@ function criarItem(r,g,subs){
   var formatoMob=extrairFormato(r.descricao);
   var mpTagMob=mpShortMob?'<span class="tag tag-sub" title="'+(r.mp||'')+'">'+mpShortMob+'</span>':'';
   var formatoTagMob=formatoMob?'<span class="tag" style="background:#F0F0E8;color:#555;font-family:monospace;font-weight:600">'+formatoMob+'</span>':'';
-  div.innerHTML='<div class="item-top"><div class="item-desc">'+(r.descricao||'')+'</div><div class="item-pedido">'+(r.pedido||'')+'/'+( r.item||'')+'</div></div><div class="item-cliente">'+(r.cliente||'')+'</div><div class="item-tags"><span class="tag tag-qty">'+fmtQtd(r.qtd)+' '+(r.un||'')+'</span>'+formatoTagMob+mlTag+largTag+mpTagMob+tempoTag+dataTag+(r.sub?'<span class="tag tag-sub">'+(r.sub||'')+'</span>':'')+'</div><div class="item-selects"><select class="sel" onchange="onChangeGrupo(\''+r.id+'\',this.value)"><option value="">- selecionar maquina -</option>'+opG+'</select>'+subSel+'<select class="sel '+obsClass+'" onchange="onChangeObs(\''+r.id+'\',this.value)">'+opObs+'</select></div>';
+  var imagensField=(r.grupo==='BATIDA')?'<div style="display:flex;align-items:center;gap:6px"><label style="font-size:12px;color:var(--text2,#666)">Imagens da faca:</label><input type="number" min="1" step="1" value="'+(r.imagens||'')+'" placeholder="1" onchange="onChangeImagens(\''+r.id+'\',this.value)" style="width:60px;padding:4px;font-size:13px;border:1px solid var(--border,#ccc);border-radius:6px;text-align:center;background:transparent;color:inherit"></div>':'';
+  div.innerHTML='<div class="item-top"><div class="item-desc">'+(r.descricao||'')+'</div><div class="item-pedido">'+(r.pedido||'')+'/'+( r.item||'')+'</div></div><div class="item-cliente">'+(r.cliente||'')+'</div><div class="item-tags"><span class="tag tag-qty">'+fmtQtd(r.qtd)+' '+(r.un||'')+'</span>'+formatoTagMob+mlTag+largTag+mpTagMob+tempoTag+dataTag+(r.sub?'<span class="tag tag-sub">'+(r.sub||'')+'</span>':'')+'</div><div class="item-selects"><select class="sel" onchange="onChangeGrupo(\''+r.id+'\',this.value)"><option value="">- selecionar maquina -</option>'+opG+'</select>'+subSel+'<select class="sel '+obsClass+'" onchange="onChangeObs(\''+r.id+'\',this.value)">'+opObs+'</select>'+imagensField+'</div>';
   return div;
 }
 
