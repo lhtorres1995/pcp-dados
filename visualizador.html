@@ -280,6 +280,8 @@ function carregar(manual){
   }
   fetchPromise
     .then(function(dados){
+      window._totalRecebido=dados.length;
+      window._semMaquina=dados.filter(function(r){return !r.finalizado&&(!r.grupo||r.grupo==='')&&r.grupo!=='__FIN__';}).length;
       DADOS=dados.filter(function(r){return !r.finalizado&&r.grupo&&r.grupo!=='__FIN__';});
       var fM=document.getElementById('filtro-maquina');
       var valAtual=fM.value;
@@ -440,6 +442,12 @@ var DESPERDICIO={
   'CORTE BROTECH / VOREY':10,'DIGITAL':10,'TROQUELADORAS':10,'REVISORAS':10,
   'BATIDA':15,'TERMICA':5
 };
+var SETUP_FIXO={
+  'FLEXO 350':90,'FLEXO 250':90,
+  'CORTE BROTECH / VOREY':20,'DIGITAL':20,'TROQUELADORAS':20,'BATIDA':20,
+  'REVISORAS':10,'TERMICA':10
+};
+function getSetupMin(r){return SETUP_FIXO[r.grupo]||0;}
 function normChave(s){return(s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
 function getVelocidade(r){
   var chave=r.sub?normChave(r.sub):normChave(r.grupo);
@@ -482,11 +490,11 @@ function tempoHoras(r){
   var tipo=GRUPOS_TEMPO[r.grupo];
   if(!tipo||tipo==='none')return null;
   var vel=getVelocidade(r);
-  var setup=parseFloat((r.setup||'').replace(',','.'));
+  var setup=getSetupMin(r);
   var ml=metrosReais(r);
   var qtd=parseNum(r.qtd);
   if(!vel||vel<=0)return null;
-  var setupH=(r.grupo==='DIGITAL'||isNaN(setup)||setup<=0)?0:(setup/60);
+  var setupH=(setup>0)?(setup/60):0;
   if(tipo==='bat'){
     if(!qtd||isNaN(qtd))return null;
     var un=(r.un||'').toUpperCase().trim();
@@ -574,7 +582,12 @@ function renderGrupos(){
   document.getElementById('st-urg').textContent=dados.filter(function(r){var d=diasPara(r.entrega);return d>=0&&d<=2;}).length;
   document.getElementById('st-obs').textContent=DADOS.filter(function(r){return r.obs;}).length;
   var conteudo=document.getElementById('conteudo');
-  if(!dados.length){conteudo.innerHTML='<div class="empty"><i class="ti ti-inbox" style="font-size:48px;display:block;margin-bottom:1rem"></i>Nenhum pedido encontrado.</div>';return;}
+  if(!dados.length){
+    var extra='';
+    if(window._totalRecebido===0)extra='<div style="font-size:13px;color:var(--text3);margin-top:8px">O arquivo de dados está vazio. Sincronize pelo Facilitador.</div>';
+    else if(window._semMaquina>0)extra='<div style="font-size:13px;color:var(--text3);margin-top:8px">'+window._semMaquina+' pedido(s) aguardando definição de máquina no Facilitador.</div>';
+    conteudo.innerHTML='<div class="empty"><i class="ti ti-inbox" style="font-size:48px;display:block;margin-bottom:1rem"></i>Nenhum pedido encontrado.'+extra+'</div>';return;
+  }
   var grupos={};
   dados.forEach(function(r){var g=r.grupo||'SEM';if(!grupos[g])grupos[g]=[];grupos[g].push(r);});
   var ordemGrupos=GRUPOS.map(function(g){return g.nome;});
