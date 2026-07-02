@@ -483,10 +483,10 @@ async function processar(){
       mlSaldo=Math.round(mlSaldo*100)/100;
     }
     // quantidade exibida = saldo (o que falta produzir); fallback para total
-    const qtdExib=nz(row[cSaldo])||nz(row[cQtdTotal]);
+    const qtdExib=(saldo>0?saldo:qtdTotal);
     return{id:k,pedido,item,cliente:nz(row[cCliente]),produto:nz(row[cProd]),descricao:limparDesc(row[cDesc]),
       qtd:qtdExib,un:nz(row[cUn]),entrega:formatarData(row[cEnt]),status,grupo,correlacionado:!!grupo,
-      metros:(mlSaldo!==''?mlSaldo:''),qtdTotal:nz(row[cQtdTotal]),saldo:nz(row[cSaldo]),mlTotal:nz(row[cMLPedido]),
+      metros:(mlSaldo!==''?mlSaldo:''),qtdTotal:qtdTotal,saldo:saldo,mlTotal:mlTotal,
       velocidade:'',setup:pcp.setup||'',
       mp:pcp.mp||'',largMP:pcp.largMP||''};
   }).filter(r=>!nl(r.status).includes('finaliz'));
