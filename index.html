@@ -252,6 +252,13 @@ const DESPERDICIO={
   'CORTE BROTECH / VOREY':10,'DIGITAL':10,'TROQUELADORAS':10,'REVISORAS':10,
   'BATIDA':15,'TERMICA':5
 };
+// Setup fixo em minutos por grupo de máquina
+const SETUP_FIXO={
+  'FLEXO 350':90,'FLEXO 250':90,
+  'CORTE BROTECH / VOREY':20,'DIGITAL':20,'TROQUELADORAS':20,'BATIDA':20,
+  'REVISORAS':10,'TERMICA':10
+};
+function getSetupMin(r){const g=getGrupo(r);return SETUP_FIXO[g]||0;}
 function normChave(s){return(s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
 function getVelocidade(r){
   const sub=getSub(r);
@@ -286,10 +293,10 @@ function tempoHoras(r){
   const gInfo=GRUPOS.find(x=>x.nome===g);
   if(!gInfo||gInfo.tipoTempo==='none')return null;
   const vel=getVelocidade(r);
-  const setup=parseFloat((r.setup||'').toString().replace(',','.'));
+  const setup=getSetupMin(r);
   let ml=parseNum(r.metros);
   if(!vel||vel<=0)return null;
-  const setupH=(g==='DIGITAL'||isNaN(setup)||setup<=0)?0:(setup/60);
+  const setupH=(setup>0)?(setup/60):0;
   if(gInfo.tipoTempo==='bat'){
     let qtdBat=parseFloat((r.qtd||'').toString().replace(',','.'));
     if(isNaN(qtdBat))return null;
