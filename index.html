@@ -348,6 +348,14 @@ function nl(s){return nz(s).toLowerCase();}
 function chave(p,i){return p.replace(/\D/g,'').padStart(6,'0')+':'+i.replace(/\D/g,'').padStart(3,'0');}
 function detectarCol(row,cands){const keys=Object.keys(row);for(const c of cands){const f=keys.find(k=>nl(k).includes(nl(c)));if(f)return f;}return keys[0];}
 function extrairPI(num){const s=nz(num),m=s.match(/[A-Za-z]?(\d+)-(\d+)/);if(m)return{pedido:m[1],item:m[2]};const pts=s.split('-');if(pts.length>=2)return{pedido:pts[0].replace(/\D/g,''),item:pts[1].replace(/\D/g,'')};return null;}
+// Extrai o código base do produto (ex: 'PA000000002842/0 - ETIQ...' -> 'PA000000002842')
+function codigoProduto(v){
+  var s=nz(v);
+  if(!s)return '';
+  // pega a primeira "palavra" antes de / ou espaço ou -
+  var m=s.match(/^([A-Za-z]*\d+)/);
+  return m?m[1].toUpperCase():s.split('/')[0].split(' ')[0].trim().toUpperCase();
+}
 function formatarData(raw){const s=nz(raw),dm=s.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);if(dm){const a=dm[3].length===2?'20'+dm[3]:dm[3];return dm[1].padStart(2,'0')+'/'+dm[2].padStart(2,'0')+'/'+a;}const n=parseFloat(s);if(!isNaN(n)&&n>40000){const d=new Date(Math.round((n-25569)*86400*1000));return String(d.getUTCDate()).padStart(2,'0')+'/'+String(d.getUTCMonth()+1).padStart(2,'0')+'/'+d.getUTCFullYear();}return s;}
 function parseDateBR(s){const m=(s||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);return null;}
 function diasParaEntrega(s){const d=parseDateBR(s);if(!d)return 999;const h=new Date();h.setHours(0,0,0,0);return Math.round((d-h)/864e5);}
@@ -374,22 +382,29 @@ async function carregarDoGitHub(){
       data.forEach(r=>{
         if(!r.id)return;
         overrides[r.id]=overrides[r.id]||{};
-        if(r.grupo)overrides[r.id].grupo=r.grupo;
+        // Preserva apenas EDIÇÕES MANUAIS feitas no Visualizador/Mobile.
+        // O GRUPO (máquina) NÃO é restaurado daqui — vem sempre do cruzamento atual do relatório PCP,
+        // para evitar que dados antigos sobrescrevam o cruzamento novo.
         if(r.sub)overrides[r.id].sub=r.sub;
         if(r.obs)overrides[r.id].obs=r.obs;
         if(r.ordem!==undefined&&r.ordem!==null&&r.ordem!=='')overrides[r.id].ordem=r.ordem;
         if(r.imagens!==undefined&&r.imagens!==null&&r.imagens!=='')overrides[r.id].imagens=r.imagens;
         if(r.finalizadoEm)overrides[r.id].finalizadoEm=r.finalizadoEm;
         if(r.noPrazo!==undefined&&r.noPrazo!==null)overrides[r.id].noPrazo=r.noPrazo;
+        // Finalização é ação manual: preserva (como grupo __FIN__)
         if(r.finalizado===true||r.finalizado==='true')overrides[r.id].grupo='__FIN__';
       });
-      console.log('GitHub carregado:',data.length,'registros');
+      console.log('GitHub carregado:',data.length,'registros (edições manuais preservadas)');
     }
   }catch(e){console.warn('GitHub offline:',e);}
 }
 
 async function sincronizar(){
   if(!verificarToken())return;
+  if(!dadosCruzados||dadosCruzados.length===0){
+    alert('Não há dados para sincronizar.\n\nCarregue os dois relatórios (Pedidos + PCP) e clique em "Processar e cruzar dados" antes de sincronizar.');
+    return;
+  }
   const btn=document.getElementById('btn-sincronizar');
   btn.disabled=true;
   btn.innerHTML='<i class="ti ti-refresh" style="animation:spin 1s linear infinite"></i> Sincronizando...';
@@ -419,8 +434,13 @@ async function sincronizar(){
     const json=await res.json();
     if(res.ok){
       ghSHA=json.content&&json.content.sha?json.content.sha:ghSHA;
-      btn.innerHTML='<i class="ti ti-circle-check"></i> Sincronizado!';
-      setTimeout(()=>{btn.disabled=false;btn.innerHTML='<i class="ti ti-cloud-upload"></i> Sincronizar';},2000);
+      const comMaq=rows.filter(x=>x.grupo).length;
+      btn.innerHTML='<i class="ti ti-circle-check"></i> '+rows.length+' enviados!';
+      console.log('Sincronizado:',rows.length,'itens |',comMaq,'com máquina');
+      if(comMaq===0&&rows.length>0){
+        setTimeout(()=>{alert('Atenção: '+rows.length+' pedidos foram sincronizados, mas NENHUM tem máquina definida.\n\nO Visualizador só exibe pedidos com máquina. Verifique se o relatório PCP corresponde aos pedidos (mesmo Pedido+Item).');},300);
+      }
+      setTimeout(()=>{btn.disabled=false;btn.innerHTML='<i class="ti ti-cloud-upload"></i> Sincronizar';},2500);
     }else{
       if(res.status===401){localStorage.removeItem('pcp_gh_token');alert('Token inválido. Clique em "Trocar token" e cole o novo.');}
       else alert('Erro: '+json.message);
@@ -439,6 +459,7 @@ async function processar(){
   overrides={};carregarLocal();await carregarDoGitHub();
   const cOrdem=detectarCol(dadosPCP[0],['número da ordem','numero da ordem','ordem','op']);
   const cMaq=detectarCol(dadosPCP[0],['grupo de máquinas','grupo de maquinas','máquina','maquina']);
+  const cProdPCP=detectarCol(dadosPCP[0],['produto']);
   const cPedido=detectarCol(dadosEntregas[0],['pedido']);
   const cItem=detectarCol(dadosEntregas[0],['item']);
   const cCliente=detectarCol(dadosEntregas[0],['cliente']);
@@ -455,16 +476,25 @@ async function processar(){
   const cSetup=detectarCol(dadosPCP[0],['tempo de setup','setup','acerto']);
   const cMP=detectarCol(dadosPCP[0],['matéria prima','materia prima','mp utilizada']);
   const cLargMP=detectarCol(dadosPCP[0],['largura da mp','largura mp','largura']);
-  const mapaPCP={};
+  // Cruzamento HÍBRIDO:
+  //  - Ordens tipo "P010228-001" cruzam por Pedido+Item (o número P contém pedido e item)
+  //  - Ordens tipo "A000557-001" (e outras) cruzam por código de Produto
+  const mapaPI={};    // chave pedido-item  -> {grupo,mp,largMP}
+  const mapaProd={};  // código de produto  -> {grupo,mp,largMP}
   dadosPCP.forEach(row=>{
-    const ei=extrairPI(row[cOrdem]);
-    if(ei){
-      const k=chave(ei.pedido,ei.item);
-      if(!mapaPCP[k])mapaPCP[k]={};
-      mapaPCP[k].grupo=normGrupo(row[cMaq]);
-      mapaPCP[k].setup=nz(row[cSetup]);
-      mapaPCP[k].mp=nz(row[cMP]);
-      mapaPCP[k].largMP=nz(row[cLargMP]);
+    const g=normGrupo(row[cMaq]);
+    if(!g)return;
+    const dados={grupo:g,mp:nz(row[cMP]),largMP:nz(row[cLargMP])};
+    const ordem=nz(row[cOrdem]);
+    const m=ordem.match(/^[Pp](\d+)-(\d+)/);
+    if(m){
+      // Ordem P -> mapa por Pedido+Item
+      const k=chave(m[1],m[2]);
+      if(!mapaPI[k])mapaPI[k]=dados;
+    }else{
+      // Ordem A (ou outra) -> mapa por Produto
+      const cod=codigoProduto(row[cProdPCP]);
+      if(cod&&!mapaProd[cod])mapaProd[cod]=dados;
     }
   });
   function num(v){
@@ -477,7 +507,9 @@ async function processar(){
   dadosCruzados=dadosEntregas.map(row=>{
     const pedido=nz(row[cPedido]),item=nz(row[cItem]),status=nz(row[cStat]);
     const k=chave(pedido,item);
-    const pcp=mapaPCP[k]||{};
+    const codProd=codigoProduto(row[cProd]);
+    // 1º tenta cruzar por Pedido+Item (ordens P); 2º por Produto (ordens A)
+    const pcp=mapaPI[k]||mapaProd[codProd]||{};
     const grupo=pcp.grupo||'';
     // M/L do saldo = M/L total × (Saldo ÷ Qtde total)  — regra de 3
     const qtdTotal=num(row[cQtdTotal]);
