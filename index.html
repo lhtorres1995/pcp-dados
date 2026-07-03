@@ -414,20 +414,25 @@ async function sincronizar(){
       if(r.status===401){localStorage.removeItem('pcp_gh_token');alert('Token inválido.');btn.disabled=false;btn.innerHTML='<i class="ti ti-cloud-upload"></i> Sincronizar';return;}
       if(r.ok){const j=await r.json();ghSHA=j.sha;}
     }
-    const rows=dadosCruzados.map(r=>({
-      id:r.id,pedido:r.pedido,item:r.item,cliente:r.cliente,produto:r.produto,
-      descricao:r.descricao,qtd:r.qtd,un:r.un,entrega:r.entrega,status:r.status,
-      grupo:getGrupo(r)||'',sub:getSub(r)||'',obs:getObs(r)||'',
-      ordem:getOrdem(r),
-      imagens:(overrides[r.id]&&overrides[r.id].imagens)||'',
-      finalizadoEm:(overrides[r.id]&&overrides[r.id].finalizadoEm)||'',
-      noPrazo:(overrides[r.id]&&overrides[r.id].noPrazo!==undefined)?overrides[r.id].noPrazo:null,
-      metros:r.metros||'',velocidade:r.velocidade||'',setup:r.setup||'',
-      saldo:r.saldo||'',qtdTotal:r.qtdTotal||'',mlTotal:r.mlTotal||'',
-      mp:r.mp||'',largMP:r.largMP||'',
-      finalizado:isFinalizado(r),atualizado:new Date().toLocaleString('pt-BR')
-    }));
-    const content=btoa(unescape(encodeURIComponent(JSON.stringify(rows,null,2))));
+    const _atualizado=new Date().toLocaleString('pt-BR');
+    const rows=dadosCruzados.map(r=>{
+      const o={
+        id:r.id,pedido:r.pedido,item:r.item,cliente:r.cliente,produto:r.produto,
+        descricao:r.descricao,qtd:r.qtd,un:r.un,entrega:r.entrega,status:r.status,
+        grupo:getGrupo(r)||'',sub:getSub(r)||'',obs:getObs(r)||'',
+        ordem:getOrdem(r),
+        metros:r.metros||'',
+        saldo:r.saldo||'',qtdTotal:r.qtdTotal||'',mlTotal:r.mlTotal||'',
+        mp:r.mp||'',largMP:r.largMP||'',
+        finalizado:isFinalizado(r),atualizado:_atualizado
+      };
+      // Campos opcionais: só incluir se preenchidos (reduz tamanho do arquivo)
+      const im=(overrides[r.id]&&overrides[r.id].imagens);if(im)o.imagens=im;
+      const fe=(overrides[r.id]&&overrides[r.id].finalizadoEm);if(fe)o.finalizadoEm=fe;
+      const np=(overrides[r.id]&&overrides[r.id].noPrazo);if(np!==undefined&&np!==null)o.noPrazo=np;
+      return o;
+    });
+    const content=btoa(unescape(encodeURIComponent(JSON.stringify(rows))));
     const body={message:'PCP Sync '+new Date().toLocaleString('pt-BR'),content};
     if(ghSHA)body.sha=ghSHA;
     const res=await fetch(getAPI(),{method:'PUT',headers:{...getHeaders(),'Content-Type':'application/json'},body:JSON.stringify(body)});
