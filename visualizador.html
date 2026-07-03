@@ -260,7 +260,20 @@ function carregar(manual){
     fetchPromise=fetch(getAPI(),{headers:getHeaders()})
       .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
       .then(function(json){
-        if(!json||!json.content)return [];
+        if(!json)return [];
+        // Arquivos > 1MB: a API contents nao retorna 'content'. Usa a Blob API via git_url.
+        if((!json.content||json.encoding==='none')&&json.git_url){
+          return fetch(json.git_url,{headers:getHeaders()})
+            .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+            .then(function(blob){
+              if(!blob||!blob.content)return [];
+              var b2=Uint8Array.from(atob(blob.content.replace(/\n/g,'')),function(ch){return ch.charCodeAt(0);});
+              var t2=new TextDecoder('utf-8').decode(b2).trim();
+              if(!t2)return [];
+              try{var d2=JSON.parse(t2);return Array.isArray(d2)?d2:[];}catch(e2){throw new Error('Arquivo corrompido. Sincronize novamente.');}
+            });
+        }
+        if(!json.content)return [];
         var bytes=Uint8Array.from(atob(json.content.replace(/\n/g,'')),function(c){return c.charCodeAt(0);});
         var texto=new TextDecoder('utf-8').decode(bytes).trim();
         if(!texto)return [];
