@@ -294,8 +294,9 @@ function carregar(manual){
     .then(function(dados){
       window._totalRecebido=dados.length;
       window._semMaquina=dados.filter(function(r){return !r.finalizado&&(!r.grupo||r.grupo==='')&&r.grupo!=='__FIN__';}).length;
-      DADOS=dados.filter(function(r){return !r.finalizado&&r.grupo!=='__FIN__';}).map(function(r){
-        if(!r.grupo||r.grupo===''){r.grupo='(AGUARDANDO MÁQUINA)';}
+      DADOS=dados.map(function(r){
+        if(r.finalizado||r.grupo==='__FIN__'){r.grupo='✓ FINALIZADOS';r.finalizado=true;}
+        else if(!r.grupo||r.grupo===''){r.grupo='(AGUARDANDO MÁQUINA)';}
         return r;
       });
       var fM=document.getElementById('filtro-maquina');
@@ -505,12 +506,17 @@ function tempoHoras(r){
   if(!vel||vel<=0)return null;
   var setupH=(setup>0)?(setup/60):0;
   if(tipo==='bat'){
-    if(!qtd||isNaN(qtd))return null;
-    var un=(r.un||'').toUpperCase().trim();
-    if(un.includes('M/')||un==='MILHEIRO'||un==='MIL')qtd=qtd*1000;
+    // Regra da batida: se 1a un for ROLO e houver 2a un, usa a 2a (etiquetas reais)
+    var qtdB, unB;
+    var un1=(r.un||'').toUpperCase().trim();
+    var s2=parseNum(r.saldo2);
+    if(un1==='ROLO'&&!isNaN(s2)&&s2>0){qtdB=s2;unB=(r.un2||'').toUpperCase().trim();}
+    else{qtdB=qtd;unB=un1;}
+    if(!qtdB||isNaN(qtdB))return null;
+    if(unB.includes('M/')||unB==='MILHEIRO'||unB==='MIL'||unB==='MI')qtdB=qtdB*1000;
     var imagens=parseNum(r.imagens);
     if(!imagens||imagens<=0)imagens=1;
-    return((qtd/imagens)/vel)+setupH;
+    return((qtdB/imagens)/vel)+setupH;
   }
   if(!ml||isNaN(ml))return null;
   ml=ml+getDesperdicio(r);
@@ -587,8 +593,8 @@ function renderGrupos(){
   var maqSet={};dados.forEach(function(r){if(r.grupo)maqSet[r.grupo]=1;});
   document.getElementById('st-maq').textContent=Object.keys(maqSet).length;
   var elAtraso=document.getElementById('st-atraso');
-  if(elAtraso)elAtraso.textContent=dados.filter(function(r){return diasPara(r.entrega)<0;}).length;
-  document.getElementById('st-urg').textContent=dados.filter(function(r){var d=diasPara(r.entrega);return d>=0&&d<=2;}).length;
+  if(elAtraso)elAtraso.textContent=dados.filter(function(r){return !r.finalizado&&diasPara(r.entrega)<0;}).length;
+  document.getElementById('st-urg').textContent=dados.filter(function(r){if(r.finalizado)return false;var d=diasPara(r.entrega);return d>=0&&d<=2;}).length;
   document.getElementById('st-obs').textContent=DADOS.filter(function(r){return r.obs;}).length;
   var conteudo=document.getElementById('conteudo');
   if(!dados.length){
@@ -600,7 +606,8 @@ function renderGrupos(){
   var grupos={};
   dados.forEach(function(r){var g=r.grupo||'SEM';if(!grupos[g])grupos[g]=[];grupos[g].push(r);});
   var ordemGrupos=GRUPOS.map(function(g){return g.nome;});
-  var chaves=Object.keys(grupos).sort(function(a,b){var ia=ordemGrupos.indexOf(a),ib=ordemGrupos.indexOf(b);if(ia===-1&&ib===-1)return a.localeCompare(b);if(ia===-1)return 1;if(ib===-1)return-1;return ia-ib;});
+  function pesoGrupo(g){if(g==='✓ FINALIZADOS')return 999;if(g==='(AGUARDANDO MÁQUINA)')return 998;var i=ordemGrupos.indexOf(g);return i===-1?997:i;}
+  var chaves=Object.keys(grupos).sort(function(a,b){return pesoGrupo(a)-pesoGrupo(b);});
   conteudo.innerHTML='';
   var container=document.createElement('div');container.className='grupos';
   chaves.forEach(function(g){
@@ -796,7 +803,8 @@ function imprimir(){
   dadosFilt.forEach(function(r){var g=r.grupo;if(!grupos[g])grupos[g]=[];grupos[g].push(r);});
   Object.keys(grupos).forEach(function(g){grupos[g].sort(colCompare);});
   var ordemGrupos=GRUPOS.map(function(g){return g.nome;});
-  var chaves=Object.keys(grupos).sort(function(a,b){var ia=ordemGrupos.indexOf(a),ib=ordemGrupos.indexOf(b);if(ia===-1&&ib===-1)return a.localeCompare(b);if(ia===-1)return 1;if(ib===-1)return-1;return ia-ib;});
+  function pesoGrupo(g){if(g==='✓ FINALIZADOS')return 999;if(g==='(AGUARDANDO MÁQUINA)')return 998;var i=ordemGrupos.indexOf(g);return i===-1?997:i;}
+  var chaves=Object.keys(grupos).sort(function(a,b){return pesoGrupo(a)-pesoGrupo(b);});
   var pages='';
   chaves.forEach(function(g,gi){
     var itens=grupos[g];
