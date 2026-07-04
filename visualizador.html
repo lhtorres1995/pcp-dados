@@ -255,42 +255,41 @@ function carregar(manual){
   document.getElementById('update-txt').textContent='Atualizando...';
   var token=getToken();
   var fetchPromise;
-  if(token){
-    // Com token: usa API do GitHub (sem cache, sempre atualizado)
-    fetchPromise=fetch(getAPI(),{headers:getHeaders()})
-      .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
-      .then(function(json){
-        if(!json)return [];
-        // Arquivos > 1MB: a API contents nao retorna 'content'. Usa a Blob API via git_url.
-        if((!json.content||json.encoding==='none')&&json.git_url){
-          return fetch(json.git_url,{headers:getHeaders()})
-            .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-            .then(function(blob){
-              if(!blob||!blob.content)return [];
-              var b2=Uint8Array.from(atob(blob.content.replace(/\n/g,'')),function(ch){return ch.charCodeAt(0);});
-              var t2=new TextDecoder('utf-8').decode(b2).trim();
-              if(!t2)return [];
-              try{var d2=JSON.parse(t2);return Array.isArray(d2)?d2:[];}catch(e2){throw new Error('Arquivo corrompido. Sincronize novamente.');}
-            });
-        }
-        if(!json.content)return [];
-        var bytes=Uint8Array.from(atob(json.content.replace(/\n/g,'')),function(c){return c.charCodeAt(0);});
-        var texto=new TextDecoder('utf-8').decode(bytes).trim();
-        if(!texto)return [];
-        try{var d=JSON.parse(texto);return Array.isArray(d)?d:[];}
-        catch(err){throw new Error('Arquivo de dados vazio ou corrompido. Sincronize novamente pelo Facilitador.');}
-      });
-  } else {
-    // Sem token: fallback para RAW (pode ter cache de até 5min)
-    fetchPromise=fetch(RAW_URL+'?t='+Date.now())
-      .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.text();})
-      .then(function(text){
-        var t=(text||'').trim();
-        if(!t)return [];
-        try{var d=JSON.parse(t);return Array.isArray(d)?d:[];}
-        catch(err){throw new Error('Arquivo de dados vazio ou corrompido. Sincronize novamente pelo Facilitador.');}
-      });
-  }
+  // LEITURA: prioriza o RAW (funciona com arquivos de qualquer tamanho, sem limite de 1MB).
+  // A API contents so e usada se o RAW falhar. Cache-busting via timestamp.
+  fetchPromise=fetch(RAW_URL+'?t='+Date.now(),{cache:'no-store'})
+    .then(function(res){if(!res.ok)throw new Error('RAW HTTP '+res.status);return res.text();})
+    .then(function(text){
+      var t=(text||'').trim();
+      if(!t)return [];
+      try{var d=JSON.parse(t);return Array.isArray(d)?d:[];}
+      catch(err){throw new Error('Arquivo corrompido. Sincronize novamente pelo Facilitador.');}
+    })
+    .catch(function(e){
+      // Fallback: se o RAW falhar E houver token, tenta a Blob API do GitHub
+      if(!token)throw e;
+      return fetch(getAPI(),{headers:getHeaders()})
+        .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
+        .then(function(json){
+          if(!json)return [];
+          if((!json.content||json.encoding==='none')&&json.git_url){
+            return fetch(json.git_url,{headers:getHeaders()})
+              .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+              .then(function(blob){
+                if(!blob||!blob.content)return [];
+                var b2=Uint8Array.from(atob(blob.content.replace(/\n/g,'')),function(ch){return ch.charCodeAt(0);});
+                var t2=new TextDecoder('utf-8').decode(b2).trim();
+                if(!t2)return [];
+                try{var d2=JSON.parse(t2);return Array.isArray(d2)?d2:[];}catch(e2){return [];}
+              });
+          }
+          if(!json.content)return [];
+          var bytes=Uint8Array.from(atob(json.content.replace(/\n/g,'')),function(ch){return ch.charCodeAt(0);});
+          var texto=new TextDecoder('utf-8').decode(bytes).trim();
+          if(!texto)return [];
+          try{var d=JSON.parse(texto);return Array.isArray(d)?d:[];}catch(err){return [];}
+        });
+    });
   fetchPromise
     .then(function(dados){
       window._totalRecebido=dados.length;
@@ -481,13 +480,7 @@ function getVelocidade(r){
 }
 function getDesperdicio(r){return DESPERDICIO[r.grupo]||0;}
 function metrosReais(r){
-  // Recalcula o M/L do saldo a partir dos campos brutos, blindando contra valores salvos errados
-  var mlT=parseNum(r.mlTotal),sal=parseNum(r.saldo),qt=parseNum(r.qtdTotal);
-  if(!isNaN(mlT)&&mlT>0){
-    if(!isNaN(sal)&&sal>0&&!isNaN(qt)&&qt>0)return Math.round(mlT*(sal/qt)*100)/100;
-    return mlT;
-  }
-  // fallback: usa o metros gravado
+  // O campo 'metros' já é o M/L a produzir (do saldo), pronto para uso
   var m=parseNum(r.metros);
   return isNaN(m)?0:m;
 }
