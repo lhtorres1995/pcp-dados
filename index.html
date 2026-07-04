@@ -298,10 +298,20 @@ function tempoHoras(r){
   if(!vel||vel<=0)return null;
   const setupH=(setup>0)?(setup/60):0;
   if(gInfo.tipoTempo==='bat'){
-    let qtdBat=parseFloat((r.qtd||'').toString().replace(',','.'));
+    // Regra da batida: se a 1a unidade for ROLO e houver 2a unidade, usa a 2a (etiquetas reais)
+    let qtdBat, un;
+    const un1=(r.un||'').toString().toUpperCase().trim();
+    const saldo2=parseFloat((r.saldo2||'').toString().replace(',','.'));
+    if(un1==='ROLO' && !isNaN(saldo2) && saldo2>0){
+      qtdBat=saldo2;
+      un=(r.un2||'').toString().toUpperCase().trim();
+    }else{
+      qtdBat=parseFloat((r.qtd||'').toString().replace(',','.'));
+      un=un1;
+    }
     if(isNaN(qtdBat))return null;
-    const un=(r.un||'').toString().toUpperCase().trim();
-    if(un.includes('M/') || un==='MILHEIRO' || un==='MIL')qtdBat=qtdBat*1000;
+    // Converte milheiro para unidades
+    if(un.includes('M/') || un==='MILHEIRO' || un==='MIL' || un==='MI')qtdBat=qtdBat*1000;
     const imagens=getImagens(r); // nº de imagens da faca (cada batida produz N etiquetas)
     return((qtdBat/imagens)/vel)+setupH;
   }
@@ -422,7 +432,7 @@ async function sincronizar(){
         grupo:getGrupo(r)||'',sub:getSub(r)||'',obs:getObs(r)||'',
         ordem:getOrdem(r),
         metros:r.metros||'',
-        saldo:r.saldo||'',
+        saldo:r.saldo||'',saldo2:r.saldo2||'',un2:r.un2||'',
         mp:r.mp||'',largMP:r.largMP||'',
         finalizado:isFinalizado(r),atualizado:_atualizado
       };
@@ -473,6 +483,8 @@ async function processar(){
   const cSaldo=detectarCol(dadosEntregas[0],['saldo pedido','saldo']);
   const cMLPedido=detectarCol(dadosEntregas[0],['m/l a produzir','m/l pedido','m/l','metros lineares','metros']);
   const cUn=detectarCol(dadosEntregas[0],['un.','unidade','un']);
+  const cSaldo2=detectarCol(dadosEntregas[0],['saldo pedido 2a','saldo 2a']);
+  const cUn2=detectarCol(dadosEntregas[0],['2a. un','2a un']);
   const cEnt=detectarCol(dadosEntregas[0],['entrega no cliente','entrega','data']);
   const cStat=detectarCol(dadosEntregas[0],['status produção','status producao','status']);
   const cMetros=detectarCol(dadosPCP[0],['metros lineares','metros','m/l']);
@@ -524,6 +536,7 @@ async function processar(){
     return{id:k,pedido,item,cliente:nz(row[cCliente]),produto:nz(row[cProd]),descricao:limparDesc(row[cDesc]),
       qtd:qtdExib,un:nz(row[cUn]),entrega:formatarData(row[cEnt]),status,grupo,correlacionado:!!grupo,
       metros:metros,saldo:saldo,
+      saldo2:nz(row[cSaldo2]),un2:nz(row[cUn2]),
       mp:pcp.mp||'',largMP:pcp.largMP||''};
   }).filter(r=>!nl(r.status).includes('finaliz'));
   const fM=document.getElementById('filtro-maquina');
