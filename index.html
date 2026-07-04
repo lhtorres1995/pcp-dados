@@ -422,7 +422,7 @@ async function sincronizar(){
         grupo:getGrupo(r)||'',sub:getSub(r)||'',obs:getObs(r)||'',
         ordem:getOrdem(r),
         metros:r.metros||'',
-        saldo:r.saldo||'',qtdTotal:r.qtdTotal||'',mlTotal:r.mlTotal||'',
+        saldo:r.saldo||'',
         mp:r.mp||'',largMP:r.largMP||'',
         finalizado:isFinalizado(r),atualizado:_atualizado
       };
@@ -470,9 +470,8 @@ async function processar(){
   const cCliente=detectarCol(dadosEntregas[0],['cliente']);
   const cProd=detectarCol(dadosEntregas[0],['produto']);
   const cDesc=detectarCol(dadosEntregas[0],['descrição','descricao','produto - descrição']);
-  const cQtdTotal=detectarCol(dadosEntregas[0],['qtde. pedido','qtde pedido','qtd. pedido','quantidade']);
   const cSaldo=detectarCol(dadosEntregas[0],['saldo pedido','saldo']);
-  const cMLPedido=detectarCol(dadosEntregas[0],['m/l pedido','m/l','metros lineares','metros']);
+  const cMLPedido=detectarCol(dadosEntregas[0],['m/l a produzir','m/l pedido','m/l','metros lineares','metros']);
   const cUn=detectarCol(dadosEntregas[0],['un.','unidade','un']);
   const cEnt=detectarCol(dadosEntregas[0],['entrega no cliente','entrega','data']);
   const cStat=detectarCol(dadosEntregas[0],['status produção','status producao','status']);
@@ -516,22 +515,15 @@ async function processar(){
     // 1º tenta cruzar por Pedido+Item (ordens P); 2º por Produto (ordens A)
     const pcp=mapaPI[k]||mapaProd[codProd]||{};
     const grupo=pcp.grupo||'';
-    // M/L do saldo = M/L total × (Saldo ÷ Qtde total)  — regra de 3
-    const qtdTotal=num(row[cQtdTotal]);
+    // M/L a produzir JÁ é o metro linear do saldo (não precisa de regra de 3)
     const saldo=num(row[cSaldo]);
-    const mlTotal=num(row[cMLPedido]);
-    let mlSaldo='';
-    if(mlTotal>0){
-      if(qtdTotal>0&&saldo>0)mlSaldo=(mlTotal*(saldo/qtdTotal));
-      else mlSaldo=mlTotal; // sem saldo/qtde válidos, usa o total
-      mlSaldo=Math.round(mlSaldo*100)/100;
-    }
-    // quantidade exibida = saldo (o que falta produzir); fallback para total
-    const qtdExib=(saldo>0?saldo:qtdTotal);
+    const mlProduzir=num(row[cMLPedido]);
+    const metros=mlProduzir>0?Math.round(mlProduzir*100)/100:'';
+    // quantidade exibida = saldo (o que falta produzir)
+    const qtdExib=nz(row[cSaldo]);
     return{id:k,pedido,item,cliente:nz(row[cCliente]),produto:nz(row[cProd]),descricao:limparDesc(row[cDesc]),
       qtd:qtdExib,un:nz(row[cUn]),entrega:formatarData(row[cEnt]),status,grupo,correlacionado:!!grupo,
-      metros:(mlSaldo!==''?mlSaldo:''),qtdTotal:qtdTotal,saldo:saldo,mlTotal:mlTotal,
-      velocidade:'',setup:pcp.setup||'',
+      metros:metros,saldo:saldo,
       mp:pcp.mp||'',largMP:pcp.largMP||''};
   }).filter(r=>!nl(r.status).includes('finaliz'));
   const fM=document.getElementById('filtro-maquina');
