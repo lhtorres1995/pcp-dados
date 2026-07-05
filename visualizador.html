@@ -65,7 +65,12 @@ body.light .countdown.soon{background:#FCEBEB;color:#A32D2D}
 .grupos{display:flex;flex-direction:column;gap:16px;padding:0 24px 24px}
 .grupo-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
 .grupo-card.tem-urgente{border-color:#EF4444}
-.grupo-header{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.grupo-header{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.grupo-header:hover{background:var(--hover,rgba(128,128,128,.05))}
+.grupo-seta{transition:transform .2s;font-size:14px;color:var(--text3);margin-right:2px}
+.grupo-card.recolhido .grupo-seta{transform:rotate(-90deg)}
+.grupo-card.recolhido .table-wrap,.grupo-card.recolhido .carga-wrap{display:none!important}
+.grupo-card.recolhido .grupo-header{border-bottom:none}
 .grupo-nome{font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px;color:var(--text)}
 .grupo-icon{width:32px;height:32px;border-radius:8px;background:var(--icon-bg);display:flex;align-items:center;justify-content:center;font-size:16px}
 .grupo-info{display:flex;align-items:center;gap:10px}
@@ -151,8 +156,10 @@ td.obs-col{width:180px}
     </div>
     <span class="countdown" id="countdown"></span>
     <button class="btn-hdr" id="btn-tema" onclick="alternarTema()"><i class="ti ti-sun" style="font-size:13px"></i> Claro</button>
+    <button class="btn-hdr" onclick="abrirParametros()"><i class="ti ti-settings" style="font-size:13px"></i> Parâmetros</button>
     <button class="btn-hdr" onclick="trocarToken()"><i class="ti ti-key" style="font-size:13px"></i> Token</button>
     <button class="btn-hdr" onclick="imprimir()"><i class="ti ti-printer" style="font-size:13px"></i> Imprimir</button>
+    <button class="btn-hdr" onclick="toggleTodosGrupos()"><i class="ti ti-chevrons-down-up" style="font-size:13px"></i> Recolher/Expandir</button>
     <button class="btn-hdr" onclick="vizVerFila()"><i class="ti ti-list-numbers" style="font-size:13px"></i> Ver fila</button>
     <button class="btn-hdr" onclick="ordenarPorData()"><i class="ti ti-calendar-sort" style="font-size:13px"></i> Ordenar por data</button>
     <button class="btn-hdr" onclick="carregar(true)"><i class="ti ti-refresh" style="font-size:13px"></i> Atualizar</button>
@@ -171,6 +178,10 @@ td.obs-col{width:180px}
   <select id="filtro-maquina" onchange="onFiltroGrupo()"><option value="">Todas as maquinas</option></select>
   <select id="filtro-submaquina" onchange="renderGrupos()" style="display:none"><option value="">Toda a maquina</option></select>
   <button class="btn-hdr" id="btn-fixar-maq" onclick="fixarMinhaMaquina()" style="display:none"><i class="ti ti-pin" style="font-size:13px"></i> Fixar</button>
+  <input type="date" id="filtro-data-de" onchange="renderGrupos()" title="Entrega a partir de" style="padding:6px 8px;border:1px solid var(--border,#ccc);border-radius:8px;font-size:12px;background:var(--card,#fff);color:inherit">
+  <span style="opacity:.6;font-size:12px">ate</span>
+  <input type="date" id="filtro-data-ate" onchange="renderGrupos()" title="Entrega ate" style="padding:6px 8px;border:1px solid var(--border,#ccc);border-radius:8px;font-size:12px;background:var(--card,#fff);color:inherit">
+  <button class="btn-hdr" onclick="limparPeriodo()" title="Limpar periodo" style="padding:5px 8px"><i class="ti ti-x" style="font-size:12px"></i></button>
   <select id="filtro-entrega" onchange="renderGrupos()">
     <option value="">Qualquer entrega</option>
     <option value="hoje">Hoje</option>
@@ -411,6 +422,36 @@ function vizVerFila(){vizSortCol='';vizSortDir=1;renderGrupos();}
 function somarTempos(rows){var total=rows.reduce(function(acc,r){var h=tempoHoras(r);return acc+(h||0);},0);return total>0?formatarTempo(total):null;}
 // ── Capacidade produtiva ──
 // Seg-Qui: 8h-18h = 9h úteis (1h almoço). Sex: 8h-17h = 8h úteis. Total 44h/semana.
+// ── Período de planejamento (filtro de/até) ──
+function getPeriodo(){
+  var de=document.getElementById('filtro-data-de');
+  var ate=document.getElementById('filtro-data-ate');
+  if(!de||!ate)return null;
+  var vDe=de.value,vAte=ate.value;
+  if(!vDe&&!vAte)return null;
+  var dDe=vDe?new Date(vDe+'T00:00:00'):null;
+  var dAte=vAte?new Date(vAte+'T00:00:00'):null;
+  return {de:dDe,ate:dAte};
+}
+function limparPeriodo(){
+  document.getElementById('filtro-data-de').value='';
+  document.getElementById('filtro-data-ate').value='';
+  renderGrupos();
+}
+// Capacidade da janela = soma das horas úteis dos dias úteis no período
+function capacidadeJanela(){
+  var p=getPeriodo();
+  if(!p||!p.de||!p.ate)return null;
+  var horas=0;
+  var d=new Date(p.de);d.setHours(0,0,0,0);
+  var fim=new Date(p.ate);fim.setHours(0,0,0,0);
+  var guard=0;
+  while(d<=fim&&guard<400){
+    horas+=horasUteisDia(d);
+    d.setDate(d.getDate()+1);guard++;
+  }
+  return horas; // horas úteis totais no período, por máquina
+}
 function horasUteisDia(d){
   var dow=d.getDay(); // 0=dom,1=seg...6=sab
   if(dow===0||dow===6)return 0;
@@ -574,16 +615,48 @@ function vsi(col){
   if(vizSortCol!==col)return ' <span style="opacity:.3">↕</span>';
   return ' <span style="color:#60A5FA">'+(vizSortDir===1?'↑':'↓')+'</span>';
 }
+var gruposRecolhidos={};
+try{gruposRecolhidos=JSON.parse(localStorage.getItem('pcp_grupos_recolhidos')||'{}');}catch(e){}
+function toggleTodosGrupos(){
+  var cards=document.querySelectorAll('.grupo-card');
+  // Se a maioria está expandida, recolhe tudo; senão expande tudo
+  var recolhidos=0;
+  cards.forEach(function(c){if(c.classList.contains('recolhido'))recolhidos++;});
+  var vaiRecolher=recolhidos<cards.length/2;
+  cards.forEach(function(card){
+    var nome=card.getAttribute('data-grupo')||'';
+    if(vaiRecolher)card.classList.add('recolhido');else card.classList.remove('recolhido');
+    gruposRecolhidos[nome]=vaiRecolher;
+  });
+  try{localStorage.setItem('pcp_grupos_recolhidos',JSON.stringify(gruposRecolhidos));}catch(e){}
+}
+function toggleGrupo(header){
+  var card=header.closest('.grupo-card');
+  var nome=card.getAttribute('data-grupo')||'';
+  card.classList.toggle('recolhido');
+  gruposRecolhidos[nome]=card.classList.contains('recolhido');
+  try{localStorage.setItem('pcp_grupos_recolhidos',JSON.stringify(gruposRecolhidos));}catch(e){}
+}
 function renderGrupos(){
   var busca=nl(document.getElementById('busca').value);
   var fMaq=document.getElementById('filtro-maquina').value;
   var fSub=document.getElementById('filtro-submaquina').value;
   var fEnt=document.getElementById('filtro-entrega').value;
   var fObs=document.getElementById('filtro-obs').value;
+  var periodo=getPeriodo();
   var dados=DADOS.filter(function(r){
     if(fMaq&&r.grupo!==fMaq)return false;
     if(fSub&&r.sub!==fSub)return false;
     if(!filtrarEntrega(r,fEnt))return false;
+    // Filtro de período por data de entrega (só o que está dentro do intervalo)
+    if(periodo){
+      if(r.finalizado)return false; // finalizados não entram no planejamento da janela
+      var de=parseDateBR(r.entrega);
+      if(!de)return false;
+      de.setHours(0,0,0,0);
+      if(periodo.de&&de<periodo.de)return false;
+      if(periodo.ate&&de>periodo.ate)return false;
+    }
     if(fObs==='__COM__'&&!r.obs)return false;
   if(fObs&&fObs!=='__COM__'&&r.obs!==fObs)return false;
     if(busca&&!nl(r.cliente).includes(busca)&&!nl(r.produto).includes(busca)&&!nl(r.pedido).includes(busca)&&!nl(r.descricao).includes(busca))return false;
@@ -639,8 +712,17 @@ function renderGrupos(){
       });
       return total;
     }
+    var capJanela=capacidadeJanela(); // horas úteis no período (null se sem período)
     function barraCarga(horas){
       if(horas<=0)return '';
+      if(capJanela&&capJanela>0){
+        // Modo período: ocupação = horas ÷ capacidade da janela
+        var ocup=horas/capJanela;
+        var pctO=Math.min(100,ocup*100);
+        var clsO=ocup<=0.7?'carga-ok':ocup<=1?'carga-meio':'carga-alta';
+        var extra=ocup>1?' <strong style="color:#DC2626">(sobrecarga!)</strong>':'';
+        return '<div class="carga-wrap"><div class="carga-bar '+clsO+'"><div class="carga-fill" style="width:'+pctO+'%"></div></div><span class="carga-label">'+formatarTempo(horas)+' de '+formatarTempo(capJanela)+' &middot; '+Math.round(ocup*100)+'% da capacidade'+extra+'</span></div>';
+      }
       var bl=backlogDias(horas);
       var cls=bl<=1?'carga-ok':bl<=2.5?'carga-meio':'carga-alta';
       var pct=Math.min(100,(bl/3)*100);
@@ -659,13 +741,23 @@ function renderGrupos(){
       var nMaq=subs.length;
       var hGrupo=itens.reduce(function(a,r){return a+(tempoHoras(r)||0);},0);
       // capacidade do grupo = nMaq máquinas; backlog médio = horas / (nMaq * 8.8)
-      var blGrupo=hGrupo>0?hGrupo/(nMaq*8.8):0;
-      var corG=blGrupo<=1?'#16A34A':blGrupo<=2.5?'#F59E0B':'#DC2626';
-      var pctG=Math.min(100,(blGrupo/3)*100);
-      cargaHTML=hGrupo>0?'<div class="carga-wrap"><span style="font-size:11px;opacity:.7;margin-right:4px">'+nMaq+' máquinas</span><div class="carga-bar"><div class="carga-fill" style="width:'+pctG+'%;background:'+corG+'"></div></div><span class="carga-label">'+formatarTempo(hGrupo)+' total &middot; ~'+blGrupo.toFixed(1).replace('.',',')+' dias/máquina</span></div>':'';
+      if(capJanela&&capJanela>0){
+        // Modo período: capacidade do grupo = capJanela × nº de máquinas
+        var capGrupo=capJanela*nMaq;
+        var ocupG=hGrupo/capGrupo;
+        var corG=ocupG<=0.7?'#16A34A':ocupG<=1?'#F59E0B':'#DC2626';
+        var pctG=Math.min(100,ocupG*100);
+        var extraG=ocupG>1?' <strong style="color:#DC2626">(sobrecarga!)</strong>':'';
+        cargaHTML=hGrupo>0?'<div class="carga-wrap"><span style="font-size:11px;opacity:.7;margin-right:4px">'+nMaq+' máquinas</span><div class="carga-bar"><div class="carga-fill" style="width:'+pctG+'%;background:'+corG+'"></div></div><span class="carga-label">'+formatarTempo(hGrupo)+' de '+formatarTempo(capGrupo)+' &middot; '+Math.round(ocupG*100)+'% da capacidade'+extraG+'</span></div>':'';
+      }else{
+        var blGrupo=hGrupo>0?hGrupo/(nMaq*8.8):0;
+        var corG=blGrupo<=1?'#16A34A':blGrupo<=2.5?'#F59E0B':'#DC2626';
+        var pctG=Math.min(100,(blGrupo/3)*100);
+        cargaHTML=hGrupo>0?'<div class="carga-wrap"><span style="font-size:11px;opacity:.7;margin-right:4px">'+nMaq+' máquinas</span><div class="carga-bar"><div class="carga-fill" style="width:'+pctG+'%;background:'+corG+'"></div></div><span class="carga-label">'+formatarTempo(hGrupo)+' total &middot; ~'+blGrupo.toFixed(1).replace('.',',')+' dias/máquina</span></div>':'';
+      }
     }
-    var card=document.createElement('div');card.className='grupo-card'+(temUrg?' tem-urgente':'');
-    card.innerHTML='<div class="grupo-header"><div class="grupo-nome"><div class="grupo-icon">'+(gInfo?gInfo.icon:'??')+'</div>'+g+'</div><div class="grupo-info"><span class="grupo-count">'+itens.length+' pedidos</span><span class="grupo-total">'+totStr+'</span>'+(urgCount>0?'<span class="urg-badge-group">'+urgCount+' urgente'+(urgCount>1?'s':'')+'</span>':'')+'</div></div>'+cargaHTML+'<div class="table-wrap"><table><thead><tr><th onclick="vizSort(\'pedido\')" style="cursor:pointer">Pedido'+vsi('pedido')+'</th><th onclick="vizSort(\'item\')" style="cursor:pointer">Item'+vsi('item')+'</th><th onclick="vizSort(\'cliente\')" style="cursor:pointer">Cliente'+vsi('cliente')+'</th><th>Produto</th><th onclick="vizSort(\'descricao\')" style="cursor:pointer">Descricao'+vsi('descricao')+'</th><th>Formato</th><th onclick="vizSort(\'qtd\')" style="cursor:pointer;text-align:right">Qtd.'+vsi('qtd')+'</th><th>Un.</th><th onclick="vizSort(\'metros\')" style="cursor:pointer;text-align:right">M.L.'+vsi('metros')+'</th><th>Larg.MP</th><th>Materia Prima</th><th>Tempo Est.</th><th onclick="vizSort(\'entrega\')" style="cursor:pointer">Entrega'+vsi('entrega')+'</th><th onclick="vizSort(\'dias\')" style="cursor:pointer">Dias'+vsi('dias')+'</th><th>Maquina</th><th>Observacao</th></tr></thead><tbody id="tbody-'+g.replace(/[^a-z0-9]/gi,'_')+'"></tbody></table></div>';
+    var card=document.createElement('div');card.className='grupo-card'+(temUrg?' tem-urgente':'')+(gruposRecolhidos[g]?' recolhido':'');card.setAttribute('data-grupo',g);
+    card.innerHTML='<div class="grupo-header" onclick="toggleGrupo(this)"><div class="grupo-nome"><span class="grupo-seta">▼</span><div class="grupo-icon">'+(gInfo?gInfo.icon:'??')+'</div>'+g+'</div><div class="grupo-info"><span class="grupo-count">'+itens.length+' pedidos</span><span class="grupo-total">'+totStr+'</span>'+(urgCount>0?'<span class="urg-badge-group">'+urgCount+' urgente'+(urgCount>1?'s':'')+'</span>':'')+'</div></div>'+cargaHTML+'<div class="table-wrap"><table><thead><tr><th onclick="vizSort(\'pedido\')" style="cursor:pointer">Pedido'+vsi('pedido')+'</th><th onclick="vizSort(\'item\')" style="cursor:pointer">Item'+vsi('item')+'</th><th onclick="vizSort(\'cliente\')" style="cursor:pointer">Cliente'+vsi('cliente')+'</th><th>Produto</th><th onclick="vizSort(\'descricao\')" style="cursor:pointer">Descricao'+vsi('descricao')+'</th><th>Formato</th><th onclick="vizSort(\'qtd\')" style="cursor:pointer;text-align:right">Qtd.'+vsi('qtd')+'</th><th>Un.</th><th onclick="vizSort(\'metros\')" style="cursor:pointer;text-align:right">M.L.'+vsi('metros')+'</th><th>Larg.MP</th><th>Materia Prima</th><th>Tempo Est.</th><th onclick="vizSort(\'entrega\')" style="cursor:pointer">Entrega'+vsi('entrega')+'</th><th onclick="vizSort(\'dias\')" style="cursor:pointer">Dias'+vsi('dias')+'</th><th>Maquina</th><th>Observacao</th></tr></thead><tbody id="tbody-'+g.replace(/[^a-z0-9]/gi,'_')+'"></tbody></table></div>';
     container.appendChild(card);
     var tbody=card.querySelector('tbody');
     if(subs){
@@ -675,9 +767,17 @@ function renderGrupos(){
         var hSub=calcFilaRisco(si); // calcula risco por máquina e retorna horas totais
         var st=document.createElement('tr');
         var mlS=somarML(si),tpS=somarTempos(si);var ext=[];if(mlS>0)ext.push(fmtQtd(mlS)+' m/l');if(tpS)ext.push(tpS);
-        var blS=backlogDias(hSub),corS=blS<=1?'#16A34A':blS<=2.5?'#F59E0B':'#DC2626';
-        var pctS=Math.min(100,(blS/3)*100);
-        var cargaInline=hSub>0?'<span style="display:inline-flex;align-items:center;gap:6px;margin-left:10px"><span style="height:7px;width:90px;border-radius:4px;background:rgba(128,128,128,.25);overflow:hidden;display:inline-block"><span style="display:block;height:100%;width:'+pctS+'%;background:'+corS+'"></span></span><span style="font-size:10px;opacity:.75">'+blS.toFixed(1).replace('.',',')+' dias</span></span>':'';
+        var corS,pctS,txtS;
+        if(capJanela&&capJanela>0){
+          var ocupS=hSub/capJanela;
+          corS=ocupS<=0.7?'#16A34A':ocupS<=1?'#F59E0B':'#DC2626';
+          pctS=Math.min(100,ocupS*100);
+          txtS=Math.round(ocupS*100)+'%';
+        }else{
+          var blS=backlogDias(hSub);corS=blS<=1?'#16A34A':blS<=2.5?'#F59E0B':'#DC2626';
+          pctS=Math.min(100,(blS/3)*100);txtS=blS.toFixed(1).replace('.',',')+' dias';
+        }
+        var cargaInline=hSub>0?'<span style="display:inline-flex;align-items:center;gap:6px;margin-left:10px"><span style="height:7px;width:90px;border-radius:4px;background:rgba(128,128,128,.25);overflow:hidden;display:inline-block"><span style="display:block;height:100%;width:'+pctS+'%;background:'+corS+'"></span></span><span style="font-size:10px;opacity:.75">'+txtS+'</span></span>':'';
         st.className='sub-header';
         st.innerHTML='<td colspan="16">> '+sub+' - '+si.length+' pedido(s)'+(ext.length?' &middot; '+ext.join(' &middot; '):'')+cargaInline+'</td>';
         tbody.appendChild(st);
@@ -849,6 +949,53 @@ if(ehTV){
   setInterval(function(){carregar(false);},30000);
 }
 carregar(true);
+
+// ── Painel de Parâmetros ──
+function abrirParametros(){montarTabelaParametros();document.getElementById('modal-parametros').style.display='flex';}
+function fecharParametros(){document.getElementById('modal-parametros').style.display='none';}
+function montarTabelaParametros(){
+  var estrutura=[
+    {grupo:'FLEXO 350',subs:['ETIRAMA','NACBRAS','KROMIA'],tipo:'metro'},
+    {grupo:'FLEXO 250',subs:['FLEXO 1','FLEXO 2','FLEXO 3'],tipo:'metro'},
+    {grupo:'TROQUELADORAS',subs:['TROQUELADORA 1','TROQUELADORA 2','PULMAO'],tipo:'metro'},
+    {grupo:'CORTE BROTECH / VOREY',subs:['BROTECH','VOREY'],tipo:'metro'},
+    {grupo:'BATIDA',subs:['CHINESA','TURO'],tipo:'batida'},
+    {grupo:'DIGITAL',subs:[],tipo:'metro'},
+    {grupo:'REVISORAS',subs:[],tipo:'metro'},
+    {grupo:'TERMICA',subs:[],tipo:'metro'}
+  ];
+  var h='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#3B82F6;color:#fff"><th style="padding:9px 12px;text-align:left">Grupo / Maquina</th><th style="padding:9px 12px;text-align:center">Velocidade</th><th style="padding:9px 12px;text-align:center">Setup</th><th style="padding:9px 12px;text-align:center">Desperdicio</th></tr></thead><tbody>';
+  estrutura.forEach(function(e){
+    var st=SETUP_FIXO[e.grupo]||0,dp=DESPERDICIO[e.grupo]||0,un=e.tipo==='batida'?'bat/h':'m/h';
+    if(e.subs.length){
+      h+='<tr><td style="padding:9px 12px;font-weight:700;color:#3B82F6" colspan="4">'+e.grupo+'</td></tr>';
+      e.subs.forEach(function(s){var v=VELOCIDADES[s]||'-';h+='<tr style="border-bottom:1px solid rgba(128,128,128,.15)"><td style="padding:7px 12px 7px 28px;opacity:.85">'+s+'</td><td style="padding:7px 12px;text-align:center;font-weight:600">'+(v!=='-'?v+' '+un:'-')+'</td><td style="padding:7px 12px;text-align:center">'+st+' min</td><td style="padding:7px 12px;text-align:center">'+dp+' m</td></tr>';});
+    }else{
+      var v=VELOCIDADES[e.grupo]||'-';
+      h+='<tr style="border-bottom:1px solid rgba(128,128,128,.15)"><td style="padding:9px 12px;font-weight:700;color:#3B82F6">'+e.grupo+'</td><td style="padding:9px 12px;text-align:center;font-weight:600">'+(v!=='-'?v+' '+un:'-')+'</td><td style="padding:9px 12px;text-align:center">'+st+' min</td><td style="padding:9px 12px;text-align:center">'+dp+' m</td></tr>';
+    }
+  });
+  h+='</tbody></table>';
+  document.getElementById('tabela-parametros').innerHTML=h;
+}
+document.addEventListener('click',function(e){var m=document.getElementById('modal-parametros');if(m&&e.target===m)fecharParametros();});
+
 </script>
+<div id="modal-parametros" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px">
+  <div style="background:var(--card,#fff);color:var(--text,#222);border-radius:16px;max-width:820px;width:100%;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0;font-size:20px;color:#3B82F6"><i class="ti ti-settings"></i> Parametros de Producao</h2>
+      <button onclick="fecharParametros()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999">&times;</button>
+    </div>
+    <p style="opacity:.7;font-size:13px;margin:0 0 20px">Velocidade em metros/hora (batida em batidas/hora), setup e desperdicio por trabalho.</p>
+    <div id="tabela-parametros"></div>
+    <div style="margin-top:20px;padding:14px;background:rgba(59,130,246,.1);border-radius:10px;font-size:13px">
+      <strong>Calculo do tempo:</strong><br>
+      &bull; <strong>Maquinas de metro:</strong> ((M/L + desperdicio) / velocidade) + setup<br>
+      &bull; <strong>Batida:</strong> ((quantidade / imagens da faca) / velocidade) + setup<br>
+      &bull; Na batida, unidade ROLO com 2a unidade usa a quantidade real de etiquetas.
+    </div>
+  </div>
+</div>
 </body>
 </html>
