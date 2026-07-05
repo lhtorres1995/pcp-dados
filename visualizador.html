@@ -142,6 +142,8 @@ td.obs-col{width:180px}
 .error i{font-size:48px;margin-bottom:1rem;display:block;color:#EF4444}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
 <div class="header">
@@ -199,6 +201,18 @@ td.obs-col{width:180px}
 </div>
 <div id="conteudo"><div class="loading"><i class="ti ti-loader"></i><p>Carregando programacao...</p></div></div>
 <script>
+// ── Firebase (Realtime Database) ──
+const firebaseConfig = {
+  apiKey: "AIzaSyArW1ZFlBetezMPgIT5_cb5C5f5UmZYNco",
+  authDomain: "pcp-dea.firebaseapp.com",
+  databaseURL: "https://pcp-dea-default-rtdb.firebaseio.com",
+  projectId: "pcp-dea",
+  storageBucket: "pcp-dea.firebasestorage.app",
+  messagingSenderId: "795369773538",
+  appId: "1:795369773538:web:834b595f81cba21d8701bb"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 var GH_REPO='lhtorres1995/pcp-sync';
 var GH_FILE='dados.json';
 var RAW_URL='https://raw.githubusercontent.com/'+GH_REPO+'/refs/heads/main/'+GH_FILE;
@@ -260,111 +274,93 @@ function iniciarContador(){
   },1000);
 }
 
+var _firebaseListener=false;
+function processarDados(dados){
+  window._totalRecebido=dados.length;
+  window._semMaquina=dados.filter(function(r){return !r.finalizado&&(!r.grupo||r.grupo==='')&&r.grupo!=='__FIN__';}).length;
+  DADOS=dados.map(function(r){
+    if(r.finalizado||r.grupo==='__FIN__'){r.grupo='✓ FINALIZADOS';r.finalizado=true;}
+    else if(!r.grupo||r.grupo===''){r.grupo='(AGUARDANDO MÁQUINA)';}
+    return r;
+  });
+  var fM=document.getElementById('filtro-maquina');
+  var valAtual=fM.value;
+  fM.innerHTML='<option value="">Todas as maquinas</option>';
+  var maquinas=[];
+  DADOS.forEach(function(r){if(r.grupo&&maquinas.indexOf(r.grupo)===-1)maquinas.push(r.grupo);});
+  maquinas.sort().forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;if(m===valAtual)o.selected=true;fM.appendChild(o);});
+  document.getElementById('filter-bar').style.display='flex';
+  if(!window._minhaMaqRestaurada){window._minhaMaqRestaurada=true;restaurarMinhaMaquina();}
+  document.getElementById('dot').className='dot';
+  var atualizado=DADOS.length&&DADOS[0].atualizado?DADOS[0].atualizado:'';
+  document.getElementById('update-txt').textContent=atualizado?'Ao vivo · '+atualizado:'Ao vivo';
+  renderGrupos();
+}
 function carregar(manual){
-  if(manual){secondsLeft=120;if(countdownInterval)clearInterval(countdownInterval);}
+  // LEITURA EM TEMPO REAL via Firebase. O listener on('value') dispara a cada mudança
+  // feita por qualquer operador — a tela se atualiza sozinha.
   document.getElementById('dot').className='dot off';
-  document.getElementById('update-txt').textContent='Atualizando...';
-  var token=getToken();
-  var fetchPromise;
-  // LEITURA: prioriza o RAW (funciona com arquivos de qualquer tamanho, sem limite de 1MB).
-  // A API contents so e usada se o RAW falhar. Cache-busting via timestamp.
-  fetchPromise=fetch(RAW_URL+'?t='+Date.now(),{cache:'no-store'})
-    .then(function(res){if(!res.ok)throw new Error('RAW HTTP '+res.status);return res.text();})
-    .then(function(text){
-      var t=(text||'').trim();
-      if(!t)return [];
-      try{var d=JSON.parse(t);return Array.isArray(d)?d:[];}
-      catch(err){throw new Error('Arquivo corrompido. Sincronize novamente pelo Facilitador.');}
-    })
-    .catch(function(e){
-      // Fallback: se o RAW falhar E houver token, tenta a Blob API do GitHub
-      if(!token)throw e;
-      return fetch(getAPI(),{headers:getHeaders()})
-        .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
-        .then(function(json){
-          if(!json)return [];
-          if((!json.content||json.encoding==='none')&&json.git_url){
-            return fetch(json.git_url,{headers:getHeaders()})
-              .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-              .then(function(blob){
-                if(!blob||!blob.content)return [];
-                var b2=Uint8Array.from(atob(blob.content.replace(/\n/g,'')),function(ch){return ch.charCodeAt(0);});
-                var t2=new TextDecoder('utf-8').decode(b2).trim();
-                if(!t2)return [];
-                try{var d2=JSON.parse(t2);return Array.isArray(d2)?d2:[];}catch(e2){return [];}
-              });
-          }
-          if(!json.content)return [];
-          var bytes=Uint8Array.from(atob(json.content.replace(/\n/g,'')),function(ch){return ch.charCodeAt(0);});
-          var texto=new TextDecoder('utf-8').decode(bytes).trim();
-          if(!texto)return [];
-          try{var d=JSON.parse(texto);return Array.isArray(d)?d:[];}catch(err){return [];}
-        });
+  document.getElementById('update-txt').textContent='Conectando...';
+  if(_firebaseListener){
+    // Já está escutando; um "atualizar" manual só relê uma vez
+    db.ref('itens').once('value').then(function(snap){
+      var val=snap.val()||{};processarDados(Object.values(val));
     });
-  fetchPromise
-    .then(function(dados){
-      window._totalRecebido=dados.length;
-      window._semMaquina=dados.filter(function(r){return !r.finalizado&&(!r.grupo||r.grupo==='')&&r.grupo!=='__FIN__';}).length;
-      DADOS=dados.map(function(r){
-        if(r.finalizado||r.grupo==='__FIN__'){r.grupo='✓ FINALIZADOS';r.finalizado=true;}
-        else if(!r.grupo||r.grupo===''){r.grupo='(AGUARDANDO MÁQUINA)';}
-        return r;
-      });
-      var fM=document.getElementById('filtro-maquina');
-      var valAtual=fM.value;
-      fM.innerHTML='<option value="">Todas as maquinas</option>';
-      var maquinas=[];
-      DADOS.forEach(function(r){if(r.grupo&&maquinas.indexOf(r.grupo)===-1)maquinas.push(r.grupo);});
-      maquinas.sort().forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;if(m===valAtual)o.selected=true;fM.appendChild(o);});
-      document.getElementById('filter-bar').style.display='flex';
-      if(!window._minhaMaqRestaurada){window._minhaMaqRestaurada=true;restaurarMinhaMaquina();}
-      document.getElementById('dot').className='dot';
-      var atualizado=DADOS.length&&DADOS[0].atualizado?DADOS[0].atualizado:'';
-      document.getElementById('update-txt').textContent=atualizado?'Atualizado: '+atualizado:'Atualizado';
-      renderGrupos();
-      iniciarContador();
-    })
-    .catch(function(e){
-      document.getElementById('dot').className='dot off';
-      document.getElementById('update-txt').textContent='Erro: '+e.message;
-      document.getElementById('conteudo').innerHTML='<div class="error"><i class="ti ti-wifi-off"></i><p>'+e.message+'</p></div>';
-      iniciarContador();
-    });
+    return;
+  }
+  _firebaseListener=true;
+  db.ref('itens').on('value',function(snap){
+    var val=snap.val()||{};
+    var arr=Object.values(val);
+    processarDados(arr);
+  },function(err){
+    document.getElementById('dot').className='dot off';
+    document.getElementById('update-txt').textContent='Erro: '+err.message;
+    document.getElementById('conteudo').innerHTML='<div class="error"><i class="ti ti-wifi-off"></i><p>Erro ao conectar ao Firebase: '+err.message+'</p></div>';
+  });
 }
 
-var saveTimeout=null;
-function agendarSalvar(){if(saveTimeout)clearTimeout(saveTimeout);saveTimeout=setTimeout(salvarNoGitHub,1500);}
-
-function salvarNoGitHub(){
-  if(!getToken()){var t=prompt('Token necessario para salvar. Cole seu GitHub Personal Access Token:');if(t&&t.trim())setToken(t.trim());else return;}
+// ── Escrita por item no Firebase (não sobrescreve o trabalho de outros operadores) ──
+function getEstacao(){return localStorage.getItem('pcp_estacao')||'';}
+function salvarItem(id,campos){
+  // Atualiza SÓ os campos informados, SÓ deste item. Não toca nos demais.
+  campos.atualizado=new Date().toLocaleString('pt-BR');
+  var est=getEstacao();if(est)campos.operador=est;
   document.getElementById('dot').className='dot saving';
   document.getElementById('update-txt').textContent='Salvando...';
-  fetch(getAPI(),{headers:getHeaders()})
-    .then(function(res){return res.json();})
-    .then(function(json){
-      ghSHA=json.sha;
-      var content=btoa(unescape(encodeURIComponent(JSON.stringify(DADOS,null,2))));
-      var body={message:'PCP Viz '+new Date().toLocaleString('pt-BR'),content:content,sha:ghSHA};
-      return fetch(getAPI(),{method:'PUT',headers:Object.assign({},getHeaders(),{'Content-Type':'application/json'}),body:JSON.stringify(body)});
-    })
-    .then(function(res){return res.json().then(function(j){return{ok:res.ok,json:j};});})
-    .then(function(r){
-      if(r.ok){ghSHA=r.json.content&&r.json.content.sha?r.json.content.sha:ghSHA;document.getElementById('dot').className='dot';document.getElementById('update-txt').textContent='Salvo!';}
-      else{document.getElementById('dot').className='dot off';document.getElementById('update-txt').textContent='Erro ao salvar';}
-    })
-    .catch(function(){document.getElementById('dot').className='dot off';document.getElementById('update-txt').textContent='Erro ao salvar';});
+  db.ref('itens/'+id).update(campos)
+    .then(function(){document.getElementById('dot').className='dot';document.getElementById('update-txt').textContent='Salvo!';})
+    .catch(function(e){document.getElementById('dot').className='dot off';document.getElementById('update-txt').textContent='Erro ao salvar';console.error(e);});
 }
 
 function onChangeGrupo(id,val){
   var r=DADOS.find(function(x){return x.id===id;});if(!r)return;
-  if(val==='__FIN__'){r.finalizado=true;r.grupo='__FIN__';}
-  else{r.finalizado=false;r.grupo=val;r.sub='';}
-  r.atualizado=new Date().toLocaleString('pt-BR');
-  agendarSalvar();renderGrupos();
+  var campos={};
+  if(val==='__FIN__'){campos.finalizado=true;campos.grupo='__FIN__';}
+  else{
+    // Registra de onde saiu (histórico de roteamento) antes de trocar
+    if(r.grupo&&r.grupo!==val&&r.grupo!=='(AGUARDANDO MÁQUINA)'&&r.grupo!=='✓ FINALIZADOS')campos.ultimaMaquina=r.grupo;
+    campos.finalizado=false;campos.grupo=val;campos.sub='';
+  }
+  salvarItem(id,campos);
+  // A tela vai atualizar sozinha pelo listener; não precisa renderGrupos manual
 }
-function onChangeSub(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;r.sub=val;r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();}
-function onChangeObs(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;r.obs=val;r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();}
-function onChangeImagens(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;var n=parseFloat((val||'').toString().replace(',','.'));r.imagens=(n&&n>0)?n:'';r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();renderGrupos();}
+// Salva a ordem de vários itens de uma vez (reordenação/drag), ainda sem sobrescrever outros campos
+function salvarOrdens(mapaOrdens){
+  var updates={};
+  Object.keys(mapaOrdens).forEach(function(id){updates['itens/'+id+'/ordem']=mapaOrdens[id];});
+  document.getElementById('dot').className='dot saving';
+  document.getElementById('update-txt').textContent='Salvando ordem...';
+  db.ref().update(updates)
+    .then(function(){document.getElementById('dot').className='dot';document.getElementById('update-txt').textContent='Salvo!';})
+    .catch(function(e){document.getElementById('dot').className='dot off';console.error(e);});
+}
+function onChangeSub(id,val){salvarItem(id,{sub:val});}
+function onChangeObs(id,val){salvarItem(id,{obs:val});}
+function onChangeImagens(id,val){
+  var n=parseFloat((val||'').toString().replace(',','.'));
+  salvarItem(id,{imagens:(n&&n>0)?n:''});
+}
 
 function filtrarEntrega(r,f){
   if(!f)return true;
@@ -572,9 +568,10 @@ function formatarTempo(h){
 }
 function ordenarPorData(){
   if(!confirm('Limpar a ordenação manual e organizar tudo por data de entrega?'))return;
-  DADOS.forEach(function(r){delete r.ordem;});
-  agendarSalvar();
-  renderGrupos();
+  var updates={};
+  DADOS.forEach(function(r){delete r.ordem;updates['itens/'+r.id+'/ordem']=null;});
+  db.ref().update(updates).then(function(){document.getElementById('update-txt').textContent='Reordenado!';});
+  // tela atualiza pelo listener
 }
 function onFiltroGrupo(){
   // ao trocar o grupo, popula as submáquinas correspondentes
@@ -821,13 +818,13 @@ function onDrop(e){
   var si=lista.indexOf(dragSrcId),di=lista.indexOf(dstId);
   if(si<0||di<0)return false;
   lista.splice(si,1);lista.splice(di,0,dragSrcId);
-  // Atribui campo ordem em DADOS
+  // Atribui campo ordem e salva só as ordens alteradas
+  var mapaOrdens={};
   lista.forEach(function(id,idx){
     var r=DADOS.find(function(x){return x.id===id;});
-    if(r)r.ordem=(idx+1)*10;
+    if(r){r.ordem=(idx+1)*10;mapaOrdens[id]=r.ordem;}
   });
-  agendarSalvar();
-  renderGrupos();
+  salvarOrdens(mapaOrdens);
   return false;
 }
 
