@@ -93,6 +93,8 @@ body.light .bottom-bar{background:#fff;border-top-color:rgba(0,0,0,0.1)}
 .loading i{font-size:40px;margin-bottom:1rem;display:block;animation:spin 1s linear infinite;color:#3B82F6}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
 <div class="header">
@@ -124,6 +126,17 @@ body.light .bottom-bar{background:#fff;border-top-color:rgba(0,0,0,0.1)}
   <button class="bottom-btn" onclick="carregar(true)"><i class="ti ti-refresh" style="font-size:13px"></i> Atualizar</button>
 </div>
 <script>
+const firebaseConfig = {
+  apiKey: "AIzaSyArW1ZFlBetezMPgIT5_cb5C5f5UmZYNco",
+  authDomain: "pcp-dea.firebaseapp.com",
+  databaseURL: "https://pcp-dea-default-rtdb.firebaseio.com",
+  projectId: "pcp-dea",
+  storageBucket: "pcp-dea.firebasestorage.app",
+  messagingSenderId: "795369773538",
+  appId: "1:795369773538:web:834b595f81cba21d8701bb"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 var GH_REPO='lhtorres1995/pcp-sync';
 var GH_FILE='dados.json';
 var RAW_URL='https://raw.githubusercontent.com/'+GH_REPO+'/refs/heads/main/'+GH_FILE;
@@ -280,94 +293,53 @@ function fmtQtd(v){if(v===null||v===undefined)return'';var n=parseFloat((v+'').r
 function nl(s){return(s||'').toLowerCase();}
 function setDot(state){['dot','dot2'].forEach(function(id){var el=document.getElementById(id);if(el)el.className='dot'+(state?' '+state:'');});}
 
+var _fbListener=false;
+function processarDadosMob(dados){
+  DADOS=dados.filter(function(r){return !r.finalizado&&r.grupo!=='__FIN__';}).map(function(r){if(!r.grupo||r.grupo===''){r.grupo='(AGUARDANDO MÁQUINA)';}return r;});
+  setDot('');
+  var atualizado=DADOS.length&&DADOS[0].atualizado?DADOS[0].atualizado:'';
+  document.getElementById('update-txt').textContent=atualizado?'Ao vivo':'Ao vivo';
+  if(!window._maqRestaurada){window._maqRestaurada=true;restaurarMaqMob();}
+  renderChips();
+  renderGrupos();
+}
 function carregar(manual){
-  if(manual&&autoInterval){clearInterval(autoInterval);autoInterval=null;}
   setDot('off');
-  document.getElementById('update-txt').textContent='Atualizando...';
-  var token=getToken();
-  var fetchPromise;
-  // LEITURA: prioriza o RAW (funciona com arquivos de qualquer tamanho, sem limite de 1MB).
-  // A API contents so e usada se o RAW falhar. Cache-busting via timestamp.
-  fetchPromise=fetch(RAW_URL+'?t='+Date.now(),{cache:'no-store'})
-    .then(function(res){if(!res.ok)throw new Error('RAW HTTP '+res.status);return res.text();})
-    .then(function(text){
-      var t=(text||'').trim();
-      if(!t)return [];
-      try{var d=JSON.parse(t);return Array.isArray(d)?d:[];}
-      catch(err){throw new Error('Arquivo corrompido. Sincronize novamente pelo Facilitador.');}
-    })
-    .catch(function(e){
-      // Fallback: se o RAW falhar E houver token, tenta a Blob API do GitHub
-      if(!token)throw e;
-      return fetch(getAPI(),{headers:getHeaders()})
-        .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.json();})
-        .then(function(json){
-          if(!json)return [];
-          if((!json.content||json.encoding==='none')&&json.git_url){
-            return fetch(json.git_url,{headers:getHeaders()})
-              .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-              .then(function(blob){
-                if(!blob||!blob.content)return [];
-                var b2=Uint8Array.from(atob(blob.content.replace(/\n/g,'')),function(ch){return ch.charCodeAt(0);});
-                var t2=new TextDecoder('utf-8').decode(b2).trim();
-                if(!t2)return [];
-                try{var d2=JSON.parse(t2);return Array.isArray(d2)?d2:[];}catch(e2){return [];}
-              });
-          }
-          if(!json.content)return [];
-          var bytes=Uint8Array.from(atob(json.content.replace(/\n/g,'')),function(ch){return ch.charCodeAt(0);});
-          var texto=new TextDecoder('utf-8').decode(bytes).trim();
-          if(!texto)return [];
-          try{var d=JSON.parse(texto);return Array.isArray(d)?d:[];}catch(err){return [];}
-        });
-    });
-  fetchPromise
-    .then(function(dados){
-      DADOS=dados.filter(function(r){return !r.finalizado&&r.grupo!=='__FIN__';}).map(function(r){if(!r.grupo||r.grupo===''){r.grupo='(AGUARDANDO MÁQUINA)';}return r;});
-      setDot('');
-      var atualizado=DADOS.length&&DADOS[0].atualizado?DADOS[0].atualizado:'';
-      document.getElementById('update-txt').textContent=atualizado||'Atualizado';
-      if(!window._maqRestaurada){window._maqRestaurada=true;restaurarMaqMob();}
-      renderChips();
-      renderGrupos();
-      if(!autoInterval)autoInterval=setInterval(function(){carregar(false);},120000);
-    })
-    .catch(function(e){
-      setDot('off');
-      document.getElementById('update-txt').textContent='Erro: '+e.message;
-      document.getElementById('grupos').innerHTML='<div class="error"><i class="ti ti-wifi-off" style="font-size:40px;display:block;margin-bottom:1rem"></i>'+e.message+'</div>';
-    });
+  document.getElementById('update-txt').textContent='Conectando...';
+  if(_fbListener){db.ref('itens').once('value').then(function(s){processarDadosMob(Object.values(s.val()||{}));});return;}
+  _fbListener=true;
+  db.ref('itens').on('value',function(snap){
+    processarDadosMob(Object.values(snap.val()||{}));
+  },function(err){
+    setDot('off');
+    document.getElementById('update-txt').textContent='Erro: '+err.message;
+    document.getElementById('grupos').innerHTML='<div class="error"><i class="ti ti-wifi-off" style="font-size:40px;display:block;margin-bottom:1rem"></i>Erro ao conectar ao Firebase</div>';
+  });
 }
 
-var saveTimeout=null;
-function agendarSalvar(){if(saveTimeout)clearTimeout(saveTimeout);saveTimeout=setTimeout(salvarNoGitHub,1500);}
-
-function salvarNoGitHub(){
-  if(!getToken()){var t=prompt('Token necessario. Cole seu GitHub Personal Access Token:');if(t&&t.trim())setToken(t.trim());else return;}
+// ── Escrita por item no Firebase ──
+function getEstacao(){
+  try{var m=JSON.parse(localStorage.getItem('pcp_minha_maquina')||'{}');return m.grupo||'';}catch(e){return '';}
+}
+function salvarItem(id,campos){
+  campos.atualizado=new Date().toLocaleString('pt-BR');
+  var est=getEstacao();if(est)campos.operador=est;
   setDot('saving');
-  fetch(getAPI(),{headers:getHeaders()})
-    .then(function(res){return res.json();})
-    .then(function(json){
-      ghSHA=json.sha;
-      var content=btoa(unescape(encodeURIComponent(JSON.stringify(DADOS,null,2))));
-      var body={message:'PCP Mobile '+new Date().toLocaleString('pt-BR'),content:content,sha:ghSHA};
-      return fetch(getAPI(),{method:'PUT',headers:Object.assign({},getHeaders(),{'Content-Type':'application/json'}),body:JSON.stringify(body)});
-    })
-    .then(function(res){return res.json().then(function(j){return{ok:res.ok,json:j};});})
-    .then(function(r){if(r.ok){ghSHA=r.json.content&&r.json.content.sha?r.json.content.sha:ghSHA;setDot('');}else setDot('off');})
-    .catch(function(){setDot('off');});
+  db.ref('itens/'+id).update(campos).then(function(){setDot('');}).catch(function(e){setDot('off');console.error(e);});
 }
-
 function onChangeGrupo(id,val){
   var r=DADOS.find(function(x){return x.id===id;});if(!r)return;
-  if(val==='__FIN__'){r.finalizado=true;r.grupo='__FIN__';}
-  else{r.finalizado=false;r.grupo=val;r.sub='';}
-  r.atualizado=new Date().toLocaleString('pt-BR');
-  agendarSalvar();renderGrupos();
+  var campos={};
+  if(val==='__FIN__'){campos.finalizado=true;campos.grupo='__FIN__';}
+  else{
+    if(r.grupo&&r.grupo!==val&&r.grupo!=='(AGUARDANDO MÁQUINA)')campos.ultimaMaquina=r.grupo;
+    campos.finalizado=false;campos.grupo=val;campos.sub='';
+  }
+  salvarItem(id,campos);
 }
-function onChangeSub(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;r.sub=val;r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();}
-function onChangeObs(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;r.obs=val;r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();}
-function onChangeImagens(id,val){var r=DADOS.find(function(x){return x.id===id;});if(!r)return;var n=parseFloat((val||'').toString().replace(',','.'));r.imagens=(n&&n>0)?n:'';r.atualizado=new Date().toLocaleString('pt-BR');agendarSalvar();renderGrupos();}
+function onChangeSub(id,val){salvarItem(id,{sub:val});}
+function onChangeObs(id,val){salvarItem(id,{obs:val});}
+function onChangeImagens(id,val){var n=parseFloat((val||'').toString().replace(',','.'));salvarItem(id,{imagens:(n&&n>0)?n:''});}
 
 function renderChips(){
   var container=document.getElementById('chips-maquina');
