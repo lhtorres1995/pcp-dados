@@ -251,6 +251,7 @@ const GRUPOS=[
   {nome:'BATIDA',subs:['CHINESA','TURO'],tipoTempo:'bat'},
   {nome:'CORTE BROTECH / VOREY',subs:['BROTECH','VOREY'],tipoTempo:'ml'},
   {nome:'REVISORAS',subs:[],tipoTempo:'ml'},
+  {nome:'PRE-IMPRESSAO',subs:[],display:'PRÉ-IMPRESSÃO',tipoTempo:'none'},
   {nome:'DIGITAL',subs:[],tipoTempo:'ml'},
 ];
 const OBS_OPCOES=['','Aguardando Faca','Aguardando Clichê','Aguardando Aprovação','Aguardando MP'];
@@ -558,7 +559,10 @@ async function processar(){
     const codProd=codigoProduto(row[cProd]);
     // 1º tenta cruzar por Pedido+Item (ordens P); 2º por Produto (ordens A)
     const pcp=mapaPI[k]||mapaProd[codProd]||{};
-    const grupo=pcp.grupo||'';
+    let grupo=pcp.grupo||'';
+    // Regra: todo item que vem como DIGITAL do ERP entra primeiro na PRÉ-IMPRESSÃO.
+    // (o operador da pré-impressão trata o arquivo e depois move para DIGITAL)
+    if(grupo==='DIGITAL')grupo='PRE-IMPRESSAO';
     // M/L a produzir JÁ é o metro linear do saldo (não precisa de regra de 3)
     const saldo=num(row[cSaldo]);
     const mlProduzir=num(row[cMLPedido]);
