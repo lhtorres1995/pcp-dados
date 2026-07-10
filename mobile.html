@@ -154,6 +154,7 @@ var GRUPOS_DEF=[
   {nome:'BATIDA',icon:'BA',subs:['CHINESA','TURO'],tipoTempo:'bat'},
   {nome:'CORTE BROTECH / VOREY',icon:'CB',subs:['BROTECH','VOREY'],tipoTempo:'ml'},
   {nome:'REVISORAS',icon:'RE',subs:[],tipoTempo:'ml'},
+  {nome:'PRE-IMPRESSAO',icon:'PI',subs:[],display:'PRÉ-IMPRESSÃO',tipoTempo:'none'},
   {nome:'DIGITAL',icon:'DG',subs:[],tipoTempo:'ml'},
 ];
 function limparMP(raw){
@@ -439,7 +440,7 @@ function criarItem(r,g,subs){
   if(dias<=0)dataTag='<span class="tag tag-hoje">HOJE</span>';
   else if(dias===1)dataTag='<span class="tag tag-urg">AMANHA</span>';
   else if(dias===2)dataTag='<span class="tag tag-urg">2d</span>';
-  var opG=GRUPOS_DEF.map(function(x){return'<option value="'+x.nome+'" '+(r.grupo===x.nome?'selected':'')+'>'+x.nome+'</option>';}).join('');
+  var opG=GRUPOS_DEF.map(function(x){return'<option value="'+x.nome+'" '+(r.grupo===x.nome?'selected':'')+'>'+(x.display||x.nome)+'</option>';}).join('');
   opG+='<option value="__FIN__"> Finalizado</option>';
   var subSel='';
   if(subs){var opS=subs.map(function(s){return'<option value="'+s+'" '+(r.sub===s?'selected':'')+'>'+s+'</option>';}).join('');subSel='<select class="sel" onchange="onChangeSub(\''+r.id+'\',this.value)"><option value="">- submaquina -</option>'+opS+'</select>';}
