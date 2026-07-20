@@ -553,12 +553,31 @@ async function processar(){
     if(s.indexOf(',')>=0)return parseFloat(s.replace(/\./g,'').replace(',','.'))||0;
     return parseFloat(s)||0;
   }
+  // Detecta entregas parceladas: conta quantas linhas cada pedido+item tem
+  const contagemPI={};
+  dadosEntregas.forEach(row=>{
+    const kk=chave(nz(row[cPedido]),nz(row[cItem]));
+    contagemPI[kk]=(contagemPI[kk]||0)+1;
+  });
+  const usados={}; // controla índice de parcela por chave base
   dadosCruzados=dadosEntregas.map(row=>{
     const pedido=nz(row[cPedido]),item=nz(row[cItem]),status=nz(row[cStat]);
-    const k=chave(pedido,item);
+    const kBase=chave(pedido,item);
+    // Se houver mais de uma linha (parcelamento), a chave ganha a data de entrega como sufixo
+    let k=kBase;
+    if(contagemPI[kBase]>1){
+      const dataEnt=formatarData(row[cEnt]);
+      // sufixo baseado na data (ISO curto). Se datas repetirem, adiciona índice sequencial.
+      const sufixo=dataEnt?dataEnt.replace(/\//g,'-'):'p';
+      let ktry=kBase+'#'+sufixo;
+      let n=2;
+      while(usados[ktry]){ktry=kBase+'#'+sufixo+'-'+n;n++;}
+      usados[ktry]=true;
+      k=ktry;
+    }
     const codProd=codigoProduto(row[cProd]);
-    // 1º tenta cruzar por Pedido+Item (ordens P); 2º por Produto (ordens A)
-    const pcp=mapaPI[k]||mapaProd[codProd]||{};
+    // 1º tenta cruzar por Pedido+Item (ordens P, chave BASE); 2º por Produto (ordens A)
+    const pcp=mapaPI[kBase]||mapaProd[codProd]||{};
     let grupo=pcp.grupo||'';
     // Regra: todo item que vem como DIGITAL do ERP entra primeiro na PRÉ-IMPRESSÃO.
     // (o operador da pré-impressão trata o arquivo e depois move para DIGITAL)
