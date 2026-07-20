@@ -781,7 +781,7 @@ function renderGrupos(){
         tbody.appendChild(st);
         si.forEach(function(r){tbody.appendChild(criarLinha(r,g,subs,riscoMap[r.id]));});
       });
-      var sem=itens.filter(function(r){return !r.sub;}).sort(colCompare);
+      var sem=itens.filter(function(r){return !r.sub||subs.indexOf(r.sub)<0;}).sort(colCompare);
       if(sem.length){
         // Pool não distribuído: sem cálculo de risco por máquina (ainda não alocado)
         sem.forEach(function(r){riscoMap[r.id]={risco:false,prevTxt:''};});
@@ -929,7 +929,7 @@ function imprimir(){
     var gInfo=GRUPOS.find(function(x){return x.nome===g;});
     var subs=gInfo&&gInfo.subs.length?gInfo.subs:null;
     var rows='';
-    if(subs){subs.forEach(function(s){var l=itens.filter(function(r){return r.sub===s;}).sort(colCompare);if(!l.length)return;rows+='<tr><td colspan="9" style="background:#F7C1C1;color:#C82828;font-weight:600;font-size:10px;padding:4px 8px;border:.5px solid #F09595">> '+s+' - '+l.length+' pedido(s)</td></tr>';l.forEach(function(r){rows+=lImp(r,g);});});var sem=itens.filter(function(r){return !r.sub;}).sort(colCompare);if(sem.length){rows+='<tr><td colspan="9" style="background:#FAEEDA;color:#854F0B;font-weight:600;font-size:10px;padding:4px 8px;border:.5px solid #FAC775">> Sem submaquina</td></tr>';sem.forEach(function(r){rows+=lImp(r,g);});}}
+    if(subs){subs.forEach(function(s){var l=itens.filter(function(r){return r.sub===s;}).sort(colCompare);if(!l.length)return;rows+='<tr><td colspan="9" style="background:#F7C1C1;color:#C82828;font-weight:600;font-size:10px;padding:4px 8px;border:.5px solid #F09595">> '+s+' - '+l.length+' pedido(s)</td></tr>';l.forEach(function(r){rows+=lImp(r,g);});});var sem=itens.filter(function(r){return !r.sub||subs.indexOf(r.sub)<0;}).sort(colCompare);if(sem.length){rows+='<tr><td colspan="9" style="background:#FAEEDA;color:#854F0B;font-weight:600;font-size:10px;padding:4px 8px;border:.5px solid #FAC775">> Sem submaquina</td></tr>';sem.forEach(function(r){rows+=lImp(r,g);});}}
     else{itens.forEach(function(r){rows+=lImp(r,g);});}
     var tots={};itens.forEach(function(r){var n=parseNum(r.qtd);if(!isNaN(n)){var u=r.un||'?';tots[u]=(tots[u]||0)+n;}});
     var totStr=Object.entries(tots).map(function(e){return fmtQtd(e[1])+' '+e[0];}).join(' | ');
