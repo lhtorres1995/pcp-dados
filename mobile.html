@@ -153,7 +153,7 @@ var GRUPOS_DEF=[
   {nome:'TERMICA',icon:'TH',subs:[],tipoTempo:'ml'},
   {nome:'BATIDA',icon:'BA',subs:['CHINESA','TURO'],tipoTempo:'bat'},
   {nome:'CORTE BROTECH / VOREY',icon:'CB',subs:['BROTECH','VOREY'],tipoTempo:'ml'},
-  {nome:'REVISORAS',icon:'RE',subs:[],tipoTempo:'ml'},
+  {nome:'REVISORAS',icon:'RE',subs:['REVISORA 1','REVISORA 2'],tipoTempo:'ml'},
   {nome:'PRE-IMPRESSAO',icon:'PI',subs:[],display:'PRÉ-IMPRESSÃO',tipoTempo:'none'},
   {nome:'DIGITAL',icon:'DG',subs:[],tipoTempo:'ml'},
 ];
@@ -189,7 +189,7 @@ var VELOCIDADES={
   'CHINESA':3000,'TURO':3000,
   'TROQUELADORA 1':2000,'TROQUELADORA 2':2000,'PULMAO':2000,
   'BROTECH':2000,'VOREY':600,
-  'REVISORAS':2400,
+  'REVISORAS':2400,'REVISORA 1':2400,'REVISORA 2':2400,
   'TERMICA':360
 };
 var DESPERDICIO={
@@ -424,7 +424,7 @@ function renderGrupos(){
         var sl=document.createElement('div');sl.className='sub-label';sl.textContent=sub+' ('+si.length+')';itensDiv.appendChild(sl);
         si.forEach(function(r){itensDiv.appendChild(criarItem(r,g,subs));});
       });
-      var sem=itens.filter(function(r){return !r.sub;});
+      var sem=itens.filter(function(r){return !r.sub||subs.indexOf(r.sub)<0;});
       if(sem.length){var sl2=document.createElement('div');sl2.className='sub-label';sl2.textContent='Sem submaquina ('+sem.length+')';itensDiv.appendChild(sl2);sem.forEach(function(r){itensDiv.appendChild(criarItem(r,g,subs));});}
     }else{itens.forEach(function(r){itensDiv.appendChild(criarItem(r,g,null));});}
     card.appendChild(itensDiv);
