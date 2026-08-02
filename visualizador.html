@@ -228,7 +228,7 @@ var GRUPOS=[
   {nome:'TERMICA',icon:'TH',subs:[]},
   {nome:'BATIDA',icon:'BA',subs:['CHINESA','TURO']},
   {nome:'CORTE BROTECH / VOREY',icon:'CB',subs:['BROTECH','VOREY']},
-  {nome:'REVISORAS',icon:'RE',subs:[]},
+  {nome:'REVISORAS',icon:'RE',subs:['REVISORA 1','REVISORA 2']},
   {nome:'PRE-IMPRESSAO',icon:'PI',subs:[],display:'PRÉ-IMPRESSÃO'},
   {nome:'DIGITAL',icon:'DG',subs:[]},
 ];
@@ -488,7 +488,7 @@ var VELOCIDADES={
   'CHINESA':3000,'TURO':3000,
   'TROQUELADORA 1':2000,'TROQUELADORA 2':2000,'PULMAO':2000,
   'BROTECH':2000,'VOREY':600,
-  'REVISORAS':2400,
+  'REVISORAS':2400,'REVISORA 1':2400,'REVISORA 2':2400,
   'TERMICA':360
 };
 var DESPERDICIO={
@@ -979,7 +979,7 @@ function montarTabelaParametros(){
     {grupo:'CORTE BROTECH / VOREY',subs:['BROTECH','VOREY'],tipo:'metro'},
     {grupo:'BATIDA',subs:['CHINESA','TURO'],tipo:'batida'},
     {grupo:'DIGITAL',subs:[],tipo:'metro'},
-    {grupo:'REVISORAS',subs:[],tipo:'metro'},
+    {grupo:'REVISORAS',subs:['REVISORA 1','REVISORA 2'],tipo:'metro'},
     {grupo:'TERMICA',subs:[],tipo:'metro'}
   ];
   var h='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#C82828;color:#fff"><th style="padding:9px 12px;text-align:left">Grupo / Maquina</th><th style="padding:9px 12px;text-align:center">Velocidade</th><th style="padding:9px 12px;text-align:center">Setup</th><th style="padding:9px 12px;text-align:center">Desperdicio</th></tr></thead><tbody>';
