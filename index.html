@@ -250,7 +250,7 @@ const GRUPOS=[
   {nome:'TERMICA',subs:[],display:'TÉRMICA',tipoTempo:'ml'},
   {nome:'BATIDA',subs:['CHINESA','TURO'],tipoTempo:'bat'},
   {nome:'CORTE BROTECH / VOREY',subs:['BROTECH','VOREY'],tipoTempo:'ml'},
-  {nome:'REVISORAS',subs:[],tipoTempo:'ml'},
+  {nome:'REVISORAS',subs:['REVISORA 1','REVISORA 2'],tipoTempo:'ml'},
   {nome:'PRE-IMPRESSAO',subs:[],display:'PRÉ-IMPRESSÃO',tipoTempo:'none'},
   {nome:'DIGITAL',subs:[],tipoTempo:'ml'},
 ];
@@ -269,7 +269,7 @@ const VELOCIDADES={
   'CHINESA':3000,'TURO':3000,
   'TROQUELADORA 1':2000,'TROQUELADORA 2':2000,'PULMAO':2000,
   'BROTECH':2000,'VOREY':600,
-  'REVISORAS':2400,
+  'REVISORAS':2400,'REVISORA 1':2400,'REVISORA 2':2400,
   'TERMICA':360
 };
 // Desperdício fixo em metros, somado uma vez por trabalho, conforme o grupo de máquina
@@ -1036,7 +1036,7 @@ function montarTabelaParametros(){
     {grupo:'CORTE BROTECH / VOREY',subs:['BROTECH','VOREY'],tipo:'metro'},
     {grupo:'BATIDA',subs:['CHINESA','TURO'],tipo:'batida'},
     {grupo:'DIGITAL',subs:[],tipo:'metro'},
-    {grupo:'REVISORAS',subs:[],tipo:'metro'},
+    {grupo:'REVISORAS',subs:['REVISORA 1','REVISORA 2'],tipo:'metro'},
     {grupo:'TERMICA',subs:[],tipo:'metro'}
   ];
   var h='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#C82828;color:#fff"><th style="padding:9px 12px;text-align:left">Grupo / Maquina</th><th style="padding:9px 12px;text-align:center">Velocidade</th><th style="padding:9px 12px;text-align:center">Setup</th><th style="padding:9px 12px;text-align:center">Desperdicio</th></tr></thead><tbody>';
