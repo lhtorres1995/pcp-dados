@@ -197,6 +197,7 @@ td.obs-col{width:180px}
     <option value="Aguardando Cliche">Aguardando Cliche</option>
     <option value="Aguardando Aprovacao">Aguardando Aprovacao</option>
     <option value="Aguardando MP">Aguardando MP</option>
+    <option value="Solicitar Clichê">Solicitar Clichê</option>
   </select>
 </div>
 <div id="conteudo"><div class="loading"><i class="ti ti-loader"></i><p>Carregando programacao...</p></div></div>
@@ -232,7 +233,7 @@ var GRUPOS=[
   {nome:'PRE-IMPRESSAO',icon:'PI',subs:[],display:'PRÉ-IMPRESSÃO'},
   {nome:'DIGITAL',icon:'DG',subs:[]},
 ];
-var OBS_OPCOES=['','Aguardando Faca','Aguardando Cliche','Aguardando Aprovacao','Aguardando MP'];
+var OBS_OPCOES=['','Aguardando Faca','Aguardando Cliche','Aguardando Aprovacao','Aguardando MP','Solicitar Clichê'];
 
 function dispNome(g){var f=GRUPOS.find(function(x){return x.nome===g;});return(f&&f.display)?f.display:(g||'');}
 function dispIcon(g){var f=GRUPOS.find(function(x){return x.nome===g;});return f?f.icon:'??';}
